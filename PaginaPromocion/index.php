@@ -1,17 +1,19 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema para la Gestión de Asistencias</title>
     <link rel="stylesheet" href="./Styles.css">
 </head>
+
 <body>
 
     <header>
         <nav>
             <a href="#inicio">
-            <img src="./Imagenes/image.png" alt="Logo Sistema" id="Logo_Arriba">
+                <img src="./Imagenes/image.png" alt="Logo Sistema" id="Logo_Arriba">
             </a>
             <a href="#sistema">Sobre el Sistema</a>
             <a href="#nosotros">Sobre Nosotros</a>
@@ -29,7 +31,7 @@
         <section id="sistema">
             <h2>Ingeniería Operativa</h2>
             <p>Una solución robusta diseñada para sustituir flujos de trabajo obsoletos por una infraestructura escalable.</p>
-            
+
             <article>
                 <h3>Núcleo de Gestión</h3>
                 <table>
@@ -76,7 +78,7 @@
             <h2>El Colectivo</h2>
             <p>Somos desarrolladores de informática con una visión: transformar la complejidad en simplicidad técnica. Nuestro trabajo se fundamenta en la creación de herramientas que no solo funcionen, sino que optimicen la vida operativa de las empresas.</p>
             <p>Nuestra metodología ignora lo convencional para enfocarse en la eficiencia pura del código y la seguridad de la información. Cada línea escrita tiene un propósito, cada base de datos una razón de ser.</p>
-            
+
             <ul id="equipo-lista">
                 <li class="desarrollador">
                     <figure>
@@ -117,9 +119,11 @@
         </section>
 
         <section id="demo">
-            <h2>Acceso a la Versión Demo</h2>
-            <p>Solicita el paquete de instalación para Android y prueba el ecosistema completo.</p>
-            <button type="button" onclick="descargarDemo()">Obtener APK de Prueba</button>
+            <h2>Explora la Plataforma</h2>
+            <p>Accede y descubre la eficiencia en la gestión de datos.</p>
+            <a href="../SistepamWebPasantias/index.php" target="_blank">
+                <button type="button">Iniciar Demo Online</button>
+            </a>
         </section>
     </main>
 
@@ -136,4 +140,5 @@
 
     <script src="./CosasChidas.js"></script>
 </body>
+
 </html>
