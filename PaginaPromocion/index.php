@@ -61,21 +61,22 @@
             <article>
                 <h3>Flujos Automatizados</h3>
                 <ul>
-                    <li><strong>Procesamiento .txt:</strong> Algoritmo de lectura masiva para la carga de asistencias externas.</li>
-                    <li><strong>Planificación:</strong> Calendarios inteligentes adaptables a turnos rotativos o fijos.</li>
+                    <li><strong>Procesamiento .txt:</strong> Algoritmo de lectura para la carga de asistencias provenientes de un biométrico.</li>
+                    <li><strong>Horarios:</strong> Calendarios adaptables a turnos rotativos o fijos.</li>
                     <li><strong>Incidencias:</strong> Sistema de ticketing interno para justificar retardos o faltas.</li>
-                    <li><strong>Reportes TXT:</strong> Salida de datos depurada lista para procesos de auditoría legal.</li>
+                    <li><strong>Reportes TXT:</strong> Salida de datos para la nómina.</li>
                 </ul>
             </article>
 
             <article>
                 <h3>Seguridad Perimetral</h3>
-                <p>El módulo de <strong>Auditorías</strong> ofrece un registro inmutable de cada interacción realizada por los usuarios, asegurando que la integridad de los datos nunca se vea comprometida.</p>
+                <p>El módulo de <strong>Auditorías</strong> ofrece un registro de cada interacción realizada por los usuarios, 
+                asegurando que la integridad de los datos nunca se vea comprometida.</p>
             </article>
         </section>
 
         <section id="nosotros">
-            <h2>El Colectivo</h2>
+            <h2>El Equipo de Trabajo</h2>
             <p>Somos desarrolladores de informática con una visión: transformar la complejidad en simplicidad técnica. Nuestro trabajo se fundamenta en la creación de herramientas que no solo funcionen, sino que optimicen la vida operativa de las empresas.</p>
             <p>Nuestra metodología ignora lo convencional para enfocarse en la eficiencia pura del código y la seguridad de la información. Cada línea escrita tiene un propósito, cada base de datos una razón de ser.</p>
 
@@ -100,7 +101,7 @@
                 </li>
                 <li class="desarrollador">
                     <figure>
-                        <img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=300&h=450&fit=crop" alt="Vicleydy">
+                        <img src="./Imagenes/FotoVivi.jpeg" alt="Vicleydy">
                         <figcaption><strong>Programador | Vicleydy Granda</strong></figcaption>
                     </figure>
                 </li>
@@ -108,8 +109,8 @@
         </section>
 
         <section id="comentarios">
-            <h2>Evolución Colaborativa</h2>
-            <p>Tu opinión es el motor de nuestras actualizaciones. Propón mejoras para el sistema.</p>
+            <h2>Opiniones Colaborativas</h2>
+            <p>Propón mejoras para el sistema.</p>
             <form id="form-comentarios">
                 <input type="text" name="nombre" placeholder="Nombre completo" required>
                 <input type="email" name="correo" placeholder="Email corporativo" required>
@@ -122,7 +123,7 @@
             <h2>Explora la Plataforma</h2>
             <p>Accede y descubre la eficiencia en la gestión de datos.</p>
             <a href="../SistepamWebPasantias/index.php" target="_blank">
-                <button type="button">Iniciar Demo Online</button>
+                <button type="button">Iniciar Demo</button>
             </a>
         </section>
     </main>
@@ -130,12 +131,12 @@
     <footer>
         <img src="./Imagenes/image.png" alt="Logo Footer" id="Logo_Abajo">
         <section id="contacto">
-            <p><strong>NODO DE SOPORTE</strong></p>
-            <p>tecnologia.iujo@soporte.com</p>
+            <p><strong>APARTADO DE SOPORTE</strong></p>
+            <p>equipochambeador.iujo@soporte.com</p>
             <p>Barquisimeto, Venezuela.</p>
         </section>
         <hr>
-        <p>&copy; <?php echo date("Y"); ?> - Desarrollado por Especialistas en Informática. IUJO.</p>
+        <p>&copy; <?php echo date("Y"); ?> - Desarrollado por Estudiantes del IUJO barquisimeto.</p>
     </footer>
 
     <script src="./CosasChidas.js"></script>
