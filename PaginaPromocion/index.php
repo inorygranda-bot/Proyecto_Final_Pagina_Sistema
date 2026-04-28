@@ -135,7 +135,6 @@
     </main>
 
     <footer>
-        <img src="./Imagenes/image.png" alt="Logo Footer" id="Logo_Abajo">
         <section id="contacto">
             <p><strong>APARTADO DE SOPORTE</strong></p>
             <p>equipochambeador.iujo@soporte.com</p>
