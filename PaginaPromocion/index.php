@@ -72,17 +72,17 @@
 
             <article>
                 <h3>Seguridad Perimetral</h3>
-                <p>El módulo de <strong>Auditorías</strong> ofrece un registro de cada interacción realizada por los usuarios, 
-                asegurando que la integridad de los datos nunca se vea comprometida.</p>
+                <p>El módulo de <strong>Auditorías</strong> ofrece un registro de cada interacción realizada por los usuarios,
+                    asegurando que la integridad de los datos nunca se vea comprometida.</p>
             </article>
         </section>
 
         <section id="nosotros">
             <h2>El Equipo de Trabajo</h2>
-            <p>Somos desarrolladores de informática con una visión: transformar la complejidad en simplicidad técnica. 
-                Nuestro trabajo se fundamenta en la creación de herramientas que no solo funcionen, 
+            <p>Somos desarrolladores de informática con una visión: transformar la complejidad en simplicidad técnica.
+                Nuestro trabajo se fundamenta en la creación de herramientas que no solo funcionen,
                 sino que optimicen la vida operativa de las empresas.</p>
-            <p>Nuestra metodología ignora lo convencional para enfocarse en la eficiencia pura del código y la seguridad de la información. 
+            <p>Nuestra metodología ignora lo convencional para enfocarse en la eficiencia pura del código y la seguridad de la información.
                 Cada línea escrita tiene un propósito, cada base de datos una razón de ser.</p>
 
             <ul id="equipo-lista">
@@ -135,33 +135,33 @@
     </main>
 
     <footer>
-    <section id="contacto">
-        <h3>SOPORTE TÉCNICO</h3>
-        <p>equipochambeador.iujo@soporte.com</p>
-        <p>Barquisimeto, Venezuela.</p>
-    </section>
+        <section id="contacto">
+            <h3>SOPORTE TÉCNICO</h3>
+            <p>equipochambeador.iujo@soporte.com</p>
+            <p>Barquisimeto, Venezuela.</p>
+        </section>
 
-    <section id="ventajas">
-        <h3>VENTAJAS</h3>
-        <ul>
-            <li>Optimización de procesos</li>
-            <li>Seguridad de datos</li>
-            <li>Escalabilidad</li>
-        </ul>
-    </section>
+        <section id="ventajas">
+            <h3>VENTAJAS</h3>
+            <ul>
+                <li>Optimización de procesos</li>
+                <li>Seguridad de datos</li>
+                <li>Escalabilidad</li>
+            </ul>
+        </section>
 
-    <section id="servicios">
-        <h3>SERVICIOS</h3>
-        <ul>
-            <li>Gestión de Asistencias</li>
-            <li>Auditoría de Sistemas</li>
-            <li>Reportes Automatizados</li>
-        </ul>
-    </section>
+        <section id="servicios">
+            <h3>SERVICIOS</h3>
+            <ul>
+                <li>Gestión de Asistencias</li>
+                <li>Auditoría de Sistemas</li>
+                <li>Reportes Automatizados</li>
+            </ul>
+        </section>
 
-    <hr>
-    <p class="copyright">&copy; <?php echo date("Y"); ?> - Desarrollado por Estudiantes del IUJO Barquisimeto.</p>
-</footer>
+        <hr>
+        <p class="copyright">&copy; <?php echo date("Y"); ?> - Desarrollado por Estudiantes del IUJO Barquisimeto.</p>
+    </footer>
     <script src="./CosasChidas.js"></script>
 </body>
 
