@@ -135,15 +135,33 @@
     </main>
 
     <footer>
-        <section id="contacto">
-            <p><strong>APARTADO DE SOPORTE</strong></p>
-            <p>equipochambeador.iujo@soporte.com</p>
-            <p>Barquisimeto, Venezuela.</p>
-        </section>
-        <hr>
-        <p>&copy; <?php echo date("Y"); ?> - Desarrollado por Estudiantes del IUJO barquisimeto.</p>
-    </footer>
+    <section id="contacto">
+        <h3>SOPORTE TÉCNICO</h3>
+        <p>equipochambeador.iujo@soporte.com</p>
+        <p>Barquisimeto, Venezuela.</p>
+    </section>
 
+    <section id="ventajas">
+        <h3>VENTAJAS</h3>
+        <ul>
+            <li>Optimización de procesos</li>
+            <li>Seguridad de datos</li>
+            <li>Escalabilidad</li>
+        </ul>
+    </section>
+
+    <section id="servicios">
+        <h3>SERVICIOS</h3>
+        <ul>
+            <li>Gestión de Asistencias</li>
+            <li>Auditoría de Sistemas</li>
+            <li>Reportes Automatizados</li>
+        </ul>
+    </section>
+
+    <hr>
+    <p class="copyright">&copy; <?php echo date("Y"); ?> - Desarrollado por Estudiantes del IUJO Barquisimeto.</p>
+</footer>
     <script src="./CosasChidas.js"></script>
 </body>
 
