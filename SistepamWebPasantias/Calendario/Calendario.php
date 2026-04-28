@@ -59,7 +59,6 @@ $pCalendario = $p ?? ($_GET["p"] ?? "inicio");
 
         </section>
 
-        <!-- Navegación y Rejilla (quedan fuera de la FilaDoble para ocupar todo el ancho) -->
         <nav class="selector-fecha">
             <button onclick="cambiarMes(-1)" class="flecha">Anterior</button>
             <h3 id="TextoMesAno">Enero 2026</h3>

@@ -207,7 +207,6 @@ function leerFeriadoEnCapa(capa, idEnt, fs, dowStr) {
     return null;
 }
 
-// 🔴 CORRECCIÓN PRINCIPAL: Eliminada la línea que marcaba domingos automáticamente
 function obtenerEstadoDia(fecha){
     const fs = fecha.toISOString().split("T")[0];
     const dowStr = String(fecha.getDay());
@@ -316,16 +315,13 @@ function eliminarFeriadoActivo(fecha, estado) {
     const capaActual = calCapaNivel();
     const idEntActual = calIdEntidadActiva();
 
-    // Si el feriado viene de arriba (es heredado)
+    // Si el feriado viene de arriba(es heredado)
     if (estado.capa !== capaActual || String(estado.idEnt) !== String(idEntActual)) {
         guardarFeriadoEnCapa(capaActual, idEntActual, fs, dowStr, "", true, true);
         window.registrarAuditoria("Eliminó Feriado Heredado (Override)", `Feriado heredado en fecha ${fs} (Capa: ${capaActual}, ID: ${idEntActual}) se ocultó/overrideó.`);
     }
     else {
-        // Si es un feriado propio o un override local.
-        // Necesitamos determinar si es un override de "día limpio" creado para ocultar un heredado.
         if (estado.motivo === "" && estado.laboral === true && estado.origen !== "semana") {
-            // No hacer nada, ya que el usuario quiere que el heredado permanezca oculto.
         } else {
             let detalleAccion = `Feriado: ${estado.motivo || 'N/A'} (Laboral: ${estado.laboral}) en fecha ${fs} (Capa: ${estado.capa}, ID: ${estado.idEnt})`;
             if (estado.origen === "semana") {
@@ -346,7 +342,6 @@ function eliminarFeriadoActivo(fecha, estado) {
     guardarDatosCalendario();
     renderizarCalendario();
 }
-
 
 function actualizarFeriadoExistente(fecha, estado, motivo, laboral) {
     asegurarCalendarios();
@@ -400,21 +395,16 @@ function abrirEditorDia(fecha, estado) {
     document.getElementById("motivo").value = estado.motivo || "";
     document.getElementById("laboral").checked = estado.laboral;
 
-    // --- LÓGICA DEL BOTÓN ELIMINAR ---
-    // El botón aparece si el estado tiene un "origen" (significa que ya hay algo guardado)
-    // O si tiene un motivo aunque sea heredado.
     if (estado.origen || (estado.motivo && estado.motivo.trim() !== "")) {
         btnEliminar.style.display = "block";
     } else {
         btnEliminar.style.display = "none";
     }
 
-    // Configuramos el click del botón eliminar
     btnEliminar.onclick = () => { 
         eliminarFeriadoActivo(fecha, estado); 
         cerrar(); 
     };
-    // ---------------------------------
 
     const h = obtenerHorarioActualParaInputs(fecha);
     document.getElementById("m1").value = h.desdeM || "";
@@ -443,7 +433,6 @@ async function procesarGuardado(esUnico) {
 
     guardarFeriadoEnCapa(capaDestino, idEntDestino, fs, dow, mot, lab, esUnico);
 
-    // Guardar horarios si existen
     const h1 = document.getElementById("m1").value;
     const h2 = document.getElementById("m2").value;
     if (h1 && h2) {
