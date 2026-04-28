@@ -25,12 +25,12 @@
     <main>
         <article id="inicio">
             <h1>SISTEMA PARA LA GESTIÓN DE ASISTENCIAS</h1>
-            <p>Arquitectura de vanguardia para la gestión de asistencias.</p>
+            <p>El mejor Sistema para Gestionar Asistencias dentro de una Empresa.</p>
         </article>
 
         <section id="sistema">
             <h2>Ingeniería Operativa</h2>
-            <p>Una solución robusta diseñada para sustituir flujos de trabajo obsoletos por una infraestructura escalable.</p>
+            <p>Una solución diseñada para sustituir flujos de trabajo obsoletos por una infraestructura escalable.</p>
 
             <article>
                 <h3>Núcleo de Gestión</h3>
@@ -68,6 +68,8 @@
                 </ul>
             </article>
 
+            <br>
+
             <article>
                 <h3>Seguridad Perimetral</h3>
                 <p>El módulo de <strong>Auditorías</strong> ofrece un registro de cada interacción realizada por los usuarios, 
@@ -77,8 +79,11 @@
 
         <section id="nosotros">
             <h2>El Equipo de Trabajo</h2>
-            <p>Somos desarrolladores de informática con una visión: transformar la complejidad en simplicidad técnica. Nuestro trabajo se fundamenta en la creación de herramientas que no solo funcionen, sino que optimicen la vida operativa de las empresas.</p>
-            <p>Nuestra metodología ignora lo convencional para enfocarse en la eficiencia pura del código y la seguridad de la información. Cada línea escrita tiene un propósito, cada base de datos una razón de ser.</p>
+            <p>Somos desarrolladores de informática con una visión: transformar la complejidad en simplicidad técnica. 
+                Nuestro trabajo se fundamenta en la creación de herramientas que no solo funcionen, 
+                sino que optimicen la vida operativa de las empresas.</p>
+            <p>Nuestra metodología ignora lo convencional para enfocarse en la eficiencia pura del código y la seguridad de la información. 
+                Cada línea escrita tiene un propósito, cada base de datos una razón de ser.</p>
 
             <ul id="equipo-lista">
                 <li class="desarrollador">
@@ -123,6 +128,7 @@
             <h2>Explora la Plataforma</h2>
             <p>Accede y descubre la eficiencia en la gestión de datos.</p>
             <a href="../SistepamWebPasantias/index.php" target="_blank">
+                <br>
                 <button type="button">Iniciar Demo</button>
             </a>
         </section>
