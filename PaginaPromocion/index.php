@@ -127,7 +127,7 @@
         <section id="demo">
             <h2>Explora la Plataforma</h2>
             <p>Accede y descubre la eficiencia en la gestión de datos.</p>
-            <a href="../SistepamWebPasantias/index.php" target="_blank">
+<a href="../SistepamWebPasantias/Login/login.php">
                 <br>
                 <button type="button">Iniciar Demo</button>
             </a>

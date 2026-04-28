@@ -107,18 +107,9 @@ function normalizarDatos() {
     });
 }
 
-function guardarEnLocal() {
-    normalizarDatos();
-    fetch("datos/gestion_api.php", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
-        body: new URLSearchParams({
-            accion: "guardar_datos_sistema",
-            datos: JSON.stringify(window.datosSistema),
-        }),
-    }).catch((e) => {
-        console.error("Error guardando en BD:", e);
-    });
+/** Mantiene coherencia con la base de datos tras cambios vía API (sin volcar JSON entero al servidor). */
+async function sincronizarDatosConsulta() {
+    await recargarDatosDesdeBD();
 }
 
 async function guardarEnBD(payload) {
@@ -481,27 +472,39 @@ function cerrarSelector() {
     if (selector) selector.hidden = true;
 }
 
-function asignarGerente(nombreCompleto) {
-    const depto = (window.datosSistema.departamentos || []).find(d => 
+async function asignarGerente(nombreCompleto) {
+    const deptoCheck = (window.datosSistema.departamentos || []).find(d =>
         d.empresa === empresaSeleccionadaRuta && d.nombre === deptoSeleccionadoRuta
     );
-    if (!depto) return;
-    
-    depto.supervisor = nombreCompleto;
-    
-    (window.datosSistema.empleados || []).forEach((e) => {
-        if (e.empresa === empresaSeleccionadaRuta && e.depto === deptoSeleccionadoRuta) {
-            e.jefe = nombreCompleto;
+    if (!deptoCheck) return;
+
+    try {
+        const respuesta = await fetch("datos/gestion_api.php", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
+            body: new URLSearchParams({
+                accion: "actualizar_gerente_depto",
+                empresa: empresaSeleccionadaRuta,
+                departamento: deptoSeleccionadoRuta,
+                supervisor: nombreCompleto,
+            }),
+        });
+        const resultado = await respuesta.json();
+        if (!resultado?.ok) {
+            alert(resultado?.mensaje || "No se pudo asignar el gerente.");
+            return;
         }
-    });
-    
-    guardarEnLocal();
-    cerrarSelector();
-    
-    const nomGer = $("NombreGerente");
-    if (nomGer) nomGer.textContent = nombreCompleto;
-    
-    if (refrescarVistaActual) refrescarVistaActual();
+        await sincronizarDatosConsulta();
+        cerrarSelector();
+
+        const nomGer = $("NombreGerente");
+        if (nomGer) nomGer.textContent = nombreCompleto;
+
+        if (refrescarVistaActual) refrescarVistaActual();
+    } catch (err) {
+        console.error(err);
+        alert("Error de red al guardar gerente.");
+    }
 }
 
 // ========================================
@@ -841,14 +844,11 @@ function initEventosFormularios() {
                     causa: causaDepto,
                 });
 
-                window.datosSistema.departamentos.push({
-                    nombre: nombreDepto,
-                    empresa: empresaNombreSelect,
-                    causa: causaDepto,
-                    supervisor: "Sin asignar",
-                });
-                window.registrarAuditoria("Creó Departamento", `Departamento: ${nombreDepto} (Empresa: ${empresaNombreSelect})`); // Auditoría
-                guardarEnLocal();
+                window.registrarAuditoria(
+                    "Creó Departamento",
+                    `Departamento: ${nombreDepto} (Empresa: ${empresaNombreSelect})`
+                );
+                await sincronizarDatosConsulta();
                 cerrarModal("ModalDepartamento");
                 renderizarListaEmpresas();
                 if (consultaVistaNivel === "empresa" && empresaSeleccionadaRuta === empresaNombreSelect) {
@@ -892,21 +892,15 @@ function initEventosFormularios() {
                     nombres,
                     apellidos,
                     cargo,
+                    empresa,
+                    departamento: depto,
                 });
 
-                window.datosSistema.empleados.push({
-                    codigo,
-                    nombres,
-                    apellidos,
-                    cedula,
-                    rif,
-                    cargo,
-                    empresa,
-                    depto,
-                    jefe: "Sin asignar",
-                });
-                window.registrarAuditoria("Creó Empleado", `Empleado: ${nombres} ${apellidos} (Cédula: ${cedula}, Código: ${codigo}) en Departamento: ${depto}, Empresa: ${empresa}`); // Auditoría
-                guardarEnLocal();
+                window.registrarAuditoria(
+                    "Creó Empleado",
+                    `Empleado: ${nombres} ${apellidos} (Cédula: ${cedula}, Código: ${codigo}) en Departamento: ${depto}, Empresa: ${empresa}`
+                );
+                await sincronizarDatosConsulta();
                 cerrarModal("ModalEmpleado");
                 renderizarListaEmpresas();
                 if (refrescarVistaActual) refrescarVistaActual();
@@ -918,109 +912,124 @@ function initEventosFormularios() {
 
     const formEditEmp = $("FormEditarEmpresa");
     if (formEditEmp) {
-        formEditEmp.addEventListener("submit", (ev) => {
+        formEditEmp.addEventListener("submit", async (ev) => {
             ev.preventDefault();
             const prev = $("EditEmpresaAnterior")?.value || "";
             const nombreNuevo = ($("EditEmpresaNombre")?.value || "").trim();
             const rifNuevo = ($("EditEmpresaRif")?.value || "").trim().toUpperCase();
-            
+            const causa = $("EditEmpresaObjetivo")?.value.trim() || "";
+
             if (!validarRifEmpresa(rifNuevo)) return alert("RIF de empresa inválido.");
-            const e = (window.datosSistema.empresas || []).find(x => x.nombre === prev);
-            if (!e) return;
-            
-            const oldName = e.nombre;
-            if (nombreNuevo !== oldName) {
-                if (window.datosSistema.calendarios.empresas?.[oldName]) {
-                    window.datosSistema.calendarios.empresas[nombreNuevo] = window.datosSistema.calendarios.empresas[oldName];
-                    delete window.datosSistema.calendarios.empresas[oldName];
-                }
-                if (window.datosSistema.calendarios.horarios.empresas?.[oldName]) {
-                    window.datosSistema.calendarios.horarios.empresas[nombreNuevo] = window.datosSistema.calendarios.horarios.empresas[oldName];
-                    delete window.datosSistema.calendarios.horarios.empresas[oldName];
-                }
+            const empresaRef = (window.datosSistema.empresas || []).find((x) => x.nombre === prev);
+            if (!empresaRef) return;
+
+            try {
+                await guardarEnBD({
+                    accion: "actualizar_empresa",
+                    nombre_anterior: prev,
+                    nombre: nombreNuevo,
+                    rif: rifNuevo,
+                    causa,
+                });
+
+                window.registrarAuditoria(
+                    "Editó Empresa",
+                    `Empresa: ${prev} -> ${nombreNuevo} (RIF: ${rifNuevo})`
+                );
+                await sincronizarDatosConsulta();
+
+                cerrarModal("ModalEditarEmpresa");
+                renderizarListaEmpresas();
+                empresaSeleccionadaRuta = nombreNuevo;
+                if (refrescarVistaActual) refrescarVistaActual();
+            } catch (error) {
+                alert(error.message || "No se pudo actualizar la empresa.");
             }
-            
-            e.nombre = nombreNuevo;
-            e.rif = rifNuevo;
-            e.causa = $("EditEmpresaObjetivo")?.value.trim() || "";
-            
-            (window.datosSistema.departamentos || []).forEach(d => { if (d.empresa === oldName) d.empresa = nombreNuevo; });
-            (window.datosSistema.empleados || []).forEach(emp => { if (emp.empresa === oldName) emp.empresa = nombreNuevo; });
-            window.registrarAuditoria("Editó Empresa", `Empresa: ${oldName} -> ${nombreNuevo} (RIF: ${rifNuevo})`); // Auditoría
-            guardarEnLocal();
-            cerrarModal("ModalEditarEmpresa");
-            renderizarListaEmpresas();
-            empresaSeleccionadaRuta = nombreNuevo;
-            if (refrescarVistaActual) refrescarVistaActual();
         });
     }
 
     const formEditDepto = $("FormEditarDepartamento");
     if (formEditDepto) {
-        formEditDepto.addEventListener("submit", (ev) => {
+        formEditDepto.addEventListener("submit", async (ev) => {
             ev.preventDefault();
             const oldEmp = $("EditDeptoEmpresaAnterior")?.value || "";
             const oldName = $("EditDeptoNombreAnterior")?.value || "";
             const newEmp = $("EditDeptoEmpresa")?.value || "";
             const newName = ($("EditDeptoNombre")?.value || "").trim();
-            
-            const d = (window.datosSistema.departamentos || []).find(x => x.empresa === oldEmp && x.nombre === oldName);
-            if (!d) return;
-            
-            if (newName !== oldName) {
-                if (window.datosSistema.calendarios.departamentos?.[oldName]) {
-                    window.datosSistema.calendarios.departamentos[newName] = window.datosSistema.calendarios.departamentos[oldName];
-                    delete window.datosSistema.calendarios.departamentos[oldName];
-                }
-                if (window.datosSistema.calendarios.horarios.departamentos?.[oldName]) {
-                    window.datosSistema.calendarios.horarios.departamentos[newName] = window.datosSistema.calendarios.horarios.departamentos[oldName];
-                    delete window.datosSistema.calendarios.horarios.departamentos[oldName];
-                }
+            const causa = $("EditDeptoObjetivo")?.value.trim() || "";
+
+            if (!oldEmp || !oldName || !newEmp || !newName) {
+                return alert("Datos de departamento incompletos.");
             }
-            
-            d.empresa = newEmp;
-            d.nombre = newName;
-            d.causa = $("EditDeptoObjetivo")?.value.trim() || "";
-            
-            (window.datosSistema.empleados || []).forEach(emp => {
-                if (emp.empresa === oldEmp && emp.depto === oldName) {
-                    emp.empresa = newEmp;
-                    emp.depto = newName;
-                }
-            });
-            window.registrarAuditoria("Editó Departamento", `Departamento: ${oldName} (Empresa: ${oldEmp}) -> ${newName} (Empresa: ${newEmp})`); // Auditoría
-            guardarEnLocal();
-            cerrarModal("ModalEditarDepartamento");
-            renderizarListaEmpresas();
-            empresaSeleccionadaRuta = newEmp;
-            if (refrescarVistaActual) refrescarVistaActual();
+
+            try {
+                await guardarEnBD({
+                    accion: "actualizar_departamento",
+                    empresa_anterior: oldEmp,
+                    nombre_anterior: oldName,
+                    empresa: newEmp,
+                    nombre: newName,
+                    causa,
+                });
+
+                window.registrarAuditoria(
+                    "Editó Departamento",
+                    `Departamento: ${oldName} (Empresa: ${oldEmp}) -> ${newName} (Empresa: ${newEmp})`
+                );
+                await sincronizarDatosConsulta();
+
+                cerrarModal("ModalEditarDepartamento");
+                renderizarListaEmpresas();
+                empresaSeleccionadaRuta = newEmp;
+                if (refrescarVistaActual) refrescarVistaActual();
+            } catch (error) {
+                alert(error.message || "No se pudo actualizar el departamento.");
+            }
         });
     }
 
     const formEditEmpleado = $("FormEditarEmpleado");
     if (formEditEmpleado) {
-        formEditEmpleado.addEventListener("submit", (ev) => {
+        formEditEmpleado.addEventListener("submit", async (ev) => {
             ev.preventDefault();
-            const ced = $("EditEmpCedulaOriginal")?.value || "";
-            const e = (window.datosSistema.empleados || []).find(x => x.cedula === ced);
+            const cedulaOriginal = $("EditEmpCedulaOriginal")?.value || "";
+            const e = (window.datosSistema.empleados || []).find((x) => x.cedula === cedulaOriginal);
             if (!e) return;
-            
+
             const rif = ($("EditEmpRif")?.value || "").trim().toUpperCase();
             if (!validarRifPersonal(rif)) return alert("RIF personal inválido.");
-            
-            e.empresa = $("EditEmpEmpresa")?.value || "";
-            e.depto = $("EditEmpDepto")?.value || "";
-            e.nombres = ($("EditEmpNombres")?.value || "").trim();
-            e.apellidos = ($("EditEmpApellidos")?.value || "").trim();
-            e.codigo = ($("EditEmpCodigo")?.value || "").trim().toUpperCase();
-            e.cargo = ($("EditEmpCargo")?.value || "").trim();
-            e.rif = rif;
-            e.jefe = $("EditEmpJefe")?.value || "Sin asignar";
-            window.registrarAuditoria("Editó Empleado", `Empleado: ${e.nombres} ${e.apellidos} (Cédula: ${e.cedula}, Código: ${e.codigo}) en Departamento: ${e.depto}, Empresa: ${e.empresa}`); // Auditoría
-            guardarEnLocal();
-            cerrarModal("ModalEditarEmpleado");
-            renderizarListaEmpresas();
-            if (refrescarVistaActual) refrescarVistaActual();
+
+            const empresaNv = $("EditEmpEmpresa")?.value || "";
+            const deptNv = $("EditEmpDepto")?.value || "";
+            const nombresNv = ($("EditEmpNombres")?.value || "").trim();
+            const apellidosNv = ($("EditEmpApellidos")?.value || "").trim();
+
+            try {
+                await guardarEnBD({
+                    accion: "actualizar_empleado",
+                    cedula_original: cedulaOriginal,
+                    empresa: empresaNv,
+                    departamento: deptNv,
+                    codigo: ($("EditEmpCodigo")?.value || "").trim().toUpperCase(),
+                    rif,
+                    nombres: nombresNv,
+                    apellidos: apellidosNv,
+                    cargo: ($("EditEmpCargo")?.value || "").trim(),
+                    jefe: $("EditEmpJefe")?.value || "Sin asignar",
+                });
+
+                window.registrarAuditoria(
+                    "Editó Empleado",
+                    `Empleado: ${nombresNv} ${apellidosNv} — ${cedulaOriginal}`
+                );
+                await sincronizarDatosConsulta();
+
+                cerrarModal("ModalEditarEmpleado");
+                renderizarListaEmpresas();
+                if (refrescarVistaActual) refrescarVistaActual();
+            } catch (error) {
+                alert(error.message || "No se pudo actualizar el empleado.");
+            }
         });
     }
 }

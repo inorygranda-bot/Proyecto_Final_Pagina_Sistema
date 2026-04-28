@@ -1,5 +1,3 @@
-const STORAGE_DATOS = "datos_gestion";
-
 function reportesAsegurarIncidencias(datos) {
     // Si no existe el array de incidencias, lo inicializamos como vacío para evitar errores posteriores.
     if (!Array.isArray(datos.incidencias)) datos.incidencias = [];

@@ -2,8 +2,8 @@
 declare(strict_types=1);
 
 /**
- * Configuración y creación de conexiones a la base de datos.
- * Ajusta las credenciales según tu entorno local/producción.
+ * Conexión a MySQL para la BD `gestion_asistencias` (utf8mb4).
+ * Coincide con tu script DDL; ajusta usuario/clave/host según tu XAMPP/servidor.
  */
 const DB_HOST = 'localhost';
 const DB_PORT = 3306;
