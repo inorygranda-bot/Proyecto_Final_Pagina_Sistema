@@ -94,19 +94,19 @@
                 </li>
                 <li class="desarrollador">
                     <figure>
-                        <img src="https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=300&h=450&fit=crop" alt="Santiagogogogo">
+                        <img src="./Imagenes/FTSANTIAGO.jpeg" alt="Santiagogogogo">
                         <figcaption><strong>Analista Integral de Datos | Santiago Arrieche</strong></figcaption>
                     </figure>
                 </li>
                 <li class="desarrollador">
                     <figure>
-                        <img src="https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=300&h=450&fit=crop" alt="EmilyGuapota">
+                        <img src="./Imagenes/FTEMILY.jpeg" alt="EmilyGuapota">
                         <figcaption><strong>Diseñadora y Desarrolladora Frontend | Emily Heredia</strong></figcaption>
                     </figure>
                 </li>
                 <li class="desarrollador">
                     <figure>
-                        <img src="./Imagenes/FotoVivi.jpeg" alt="Vicleydy">
+                        <img src="./Imagenes/FTVIVI.jpeg" alt="Vicleydy">
                         <figcaption><strong>Programador | Vicleydy Granda</strong></figcaption>
                     </figure>
                 </li>
