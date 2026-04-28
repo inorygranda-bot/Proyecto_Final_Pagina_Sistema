@@ -76,7 +76,7 @@ window.abrirModalRol = async function(id = null) {
     document.getElementById("TituloModalRol").textContent = rol ? "Editar Rol" : "Nuevo Rol";
 
     // Módulos disponibles en el sistema para asignar permisos
-    const modulos = ["registro", "consulta", "horarios", "reportes", "gestion"];
+    const modulos = ["registro", "consulta", "horarios", "reportes", "gestion", "auditorias"];
     const grid = document.getElementById("GridModulosRol");
     if (grid) {
         grid.innerHTML = modulos.map(m => `
