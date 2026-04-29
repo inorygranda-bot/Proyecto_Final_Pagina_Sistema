@@ -54,12 +54,32 @@ function asegurarTablaConfiguracionApp(PDO $conexion): void
     );
 }
 
+function asegurarTablaAuditorias(PDO $conexion): void
+{
+    if (tablaExiste($conexion, 'auditorias')) {
+        return;
+    }
+    $conexion->exec(
+        'CREATE TABLE auditorias (
+            id_auditoria INT(10) NOT NULL AUTO_INCREMENT,
+            id_usuario INT(10) NOT NULL,
+            accion VARCHAR(255) NOT NULL,
+            descripcion TEXT NULL,
+            fecha_hora DATETIME NOT NULL,
+            PRIMARY KEY (id_auditoria),
+            KEY fk_auditoria_usuario (id_usuario),
+            CONSTRAINT fk_auditoria_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id_usuario) ON DELETE CASCADE ON UPDATE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
+}
+
 /**
  * Liga empleados a departamento y permite gerente nominal en departamento sin romper FK actuales.
  */
 function migrarEsquemaAplicacionOpcional(PDO $conexion): void
 {
     asegurarTablaConfiguracionApp($conexion);
+    asegurarTablaAuditorias($conexion);
 
     if (!columnaExiste($conexion, 'departamento', 'supervisor_nombre')) {
         $conexion->exec(
@@ -111,17 +131,17 @@ function leerJsonConfig(PDO $conexion, string $clave, array $fallback = []): arr
     return is_array($j) ? $j : $fallback;
 }
 
-function guardarJsonConfig(PDO $conexion, string $clave, array $valor): void
+function registrarAuditoria(PDO $conexion, int $idUsuario, string $accion, string $descripcion = ''): void
 {
-    $json = json_encode($valor, JSON_UNESCAPED_UNICODE);
-    if ($json === false) {
-        throw new RuntimeException('No se pudo serializar JSON.');
-    }
-    $st = $conexion->prepare(
-        'INSERT INTO configuracion_app (clave, valor_json) VALUES (:c, :v)
-         ON DUPLICATE KEY UPDATE valor_json = VALUES(valor_json)'
+    $ins = $conexion->prepare(
+        'INSERT INTO auditorias (id_usuario, accion, descripcion, fecha_hora)
+         VALUES (:id, :acc, :descr, NOW())'
     );
-    $st->execute(['c' => $clave, 'v' => $json]);
+    $ins->execute([
+        'id' => $idUsuario,
+        'acc' => $accion,
+        'descr' => $descripcion,
+    ]);
 }
 
 /**

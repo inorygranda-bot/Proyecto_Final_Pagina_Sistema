@@ -240,6 +240,7 @@ window.guardarUsuario = async function(e) {
                 password: clave,
                 rol,
                 estado,
+                usuario_actual: 'admin', // Hardcodeado por ahora
             }),
         });
         const resultado = await respuesta.json();
@@ -257,6 +258,7 @@ window.guardarUsuario = async function(e) {
                 usuario: login,
                 password: clave,
                 rol,
+                usuario_actual: 'admin',
             }),
         });
         const resultado = await respuesta.json();

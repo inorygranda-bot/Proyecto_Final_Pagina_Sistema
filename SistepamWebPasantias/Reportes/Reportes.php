@@ -79,10 +79,10 @@
     <article id="panelNomina" class="ReportesPanel" role="tabpanel" aria-labelledby="BtnPestañaNomina" hidden>
         <header class="ReportesPanel__head">
             <h3>Nómina</h3>
-            <p>Generar archivo de nómina en diferentes formatos.</p>
+            <p>Generar archivo de nómina con asistencia a partir del TXT cargado por los empleados.</p>
         </header>
 
-        <form id="FormNomina" class="ReportesFormulario" autocomplete="off">
+        <form id="FormNomina" class="ReportesFormulario" autocomplete="off" action="nomina_txt/generador_nomina.php" method="post" enctype="multipart/form-data" target="_blank">
             <fieldset class="ReportesFieldset">
                 <legend>Formato del archivo</legend>
                 <label class="ReportesRadio">
@@ -98,6 +98,26 @@
                     Excel
                 </label>
             </fieldset>
+
+            <label for="EmpleadoSelect">Seleccionar empleado</label>
+            <select id="EmpleadoSelect" name="cedula" required>
+                <option value="">— Elija empleado —</option>
+            </select>
+
+            <section class="ReportesFormulario__fila">
+                <article>
+                    <label for="FechaDesde">Fecha desde</label>
+                    <input type="date" id="FechaDesde" name="fechaDesde" required>
+                </article>
+                <article>
+                    <label for="FechaHasta">Fecha hasta</label>
+                    <input type="date" id="FechaHasta" name="fechaHasta" required>
+                </article>
+            </section>
+
+            <label for="AsistenciaTxt">Archivo de asistencias</label>
+            <input type="file" id="AsistenciaTxt" name="asistenciaTxt" accept=".txt" required>
+            <p class="ReportesAyuda">Suba el archivo TXT de marcas de entrada/salida para generar la nómina filtrada.</p>
 
             <footer class="ReportesFormulario__acciones">
                 <button type="button" class="ReportesBtn ReportesBtn--secundario" onclick="volverMenuReportes()">Volver al menú</button>

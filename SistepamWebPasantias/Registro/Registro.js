@@ -74,6 +74,7 @@ async function guardarEmpresaEnBD(empresa) {
             nombre: empresa.nombre,
             rif: empresa.rif,
             causa: empresa.causa || "",
+            usuario: 'admin',
         }),
     });
 

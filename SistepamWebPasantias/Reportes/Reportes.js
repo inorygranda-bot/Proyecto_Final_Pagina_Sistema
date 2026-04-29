@@ -130,13 +130,36 @@ function reportesCambiarPestana(pestanaActiva) {
     const panelId = pestanaActiva.getAttribute('data-panel');
     const panel = document.getElementById(panelId);
     if (panel) panel.hidden = false;
+
+    // Si es el panel de nómina, cargar empleados
+    if (panelId === 'panelNomina') {
+        cargarEmpleados();
+    }
 }
 
-function reportesOnSubmitNomina(ev) {
-    ev.preventDefault();
-    const form = ev.target;
-    const formato = form.formato.value;
-    window.open(`nomina_txt/generador_nomina.php?formato=${formato}`, '_blank');
+async function cargarEmpleados() {
+    const select = document.getElementById('EmpleadoSelect');
+    if (!select) return;
+
+    try {
+        const respuesta = await fetch('datos/gestion_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ accion: 'obtener_empleados' })
+        });
+        const resultado = await respuesta.json();
+        if (resultado.ok && resultado.data) {
+            select.innerHTML = '<option value="">— Elija empleado —</option>';
+            resultado.data.forEach(emp => {
+                const option = document.createElement('option');
+                option.value = emp.cedula_empleado;
+                option.textContent = `${emp.nombre} ${emp.apellido} (${emp.cedula_empleado})`;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error cargando empleados:', error);
+    }
 }
 
 function volverMenuReportes() {
@@ -145,7 +168,6 @@ function volverMenuReportes() {
 
 document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("FormIncidencia")?.addEventListener("submit", reportesOnSubmitIncidencia);
-    document.getElementById("FormNomina")?.addEventListener("submit", reportesOnSubmitNomina);
     
     // Manejar clicks en pestañas
     document.querySelectorAll('.ReportesPestaña').forEach(btn => {

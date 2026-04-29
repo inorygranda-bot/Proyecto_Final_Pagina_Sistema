@@ -132,6 +132,7 @@ try {
             $nombre = post('nombre');
             $rif = strtoupper(post('rif'));
             $causa = post('causa');
+            $usuario = post('usuario'); // Agregar usuario
 
             if ($nombre === '' || $rif === '') {
                 responder(false, 'Nombre y RIF son obligatorios.');
@@ -153,6 +154,13 @@ try {
                 'causa' => $causa,
             ]);
 
+            if ($usuario !== '') {
+                $idUser = idUsuarioPorLogin($conexion, $usuario);
+                if ($idUser !== null) {
+                    registrarAuditoria($conexion, $idUser, 'Creó Empresa', "Empresa: $nombre (RIF: $rif)");
+                }
+            }
+
             responder(true, 'Empresa registrada en base de datos.');
             break;
 
@@ -160,6 +168,7 @@ try {
             $empresaNombre = post('empresa');
             $nombreDepto = post('nombre');
             $causa = post('causa');
+            $usuario = post('usuario');
 
             if ($empresaNombre === '' || $nombreDepto === '') {
                 responder(false, 'Empresa y nombre del departamento son obligatorios.');
@@ -198,6 +207,13 @@ try {
                 'id_empresa' => $idEmpresa,
             ]);
 
+            if ($usuario !== '') {
+                $idUser = idUsuarioPorLogin($conexion, $usuario);
+                if ($idUser !== null) {
+                    registrarAuditoria($conexion, $idUser, 'Creó Departamento', "Departamento: $nombreDepto en Empresa: $empresaNombre");
+                }
+            }
+
             responder(true, 'Departamento registrado en base de datos.');
             break;
 
@@ -210,6 +226,7 @@ try {
             $cargo = post('cargo');
             $nombreEmpresa = post('empresa');
             $nombreDepto = post('departamento');
+            $usuario = post('usuario');
 
             if ($codigo === '' || $cedula === '' || $rif === ''
                 || $nombres === '' || $apellidos === '' || $cargo === ''
@@ -248,13 +265,27 @@ try {
                 'id_dep' => $deptoUb['id_departamento'],
             ]);
 
+            if ($usuario !== '') {
+                $idUser = idUsuarioPorLogin($conexion, $usuario);
+                if ($idUser !== null) {
+                    registrarAuditoria($conexion, $idUser, 'Creó Empleado', "Empleado: $nombres $apellidos (Cédula: $cedula)");
+                }
+            }
+
             responder(true, 'Empleado registrado en base de datos.');
+            break;
+
+        case 'obtener_empleados':
+            $stmt = $conexion->query('SELECT id_empleado, nombre, apellido, cedula_empleado FROM Empleados ORDER BY nombre, apellido');
+            $empleados = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            responder(true, 'Empleados obtenidos.', $empleados);
             break;
 
         case 'crear_usuario':
             $usuario = post('usuario');
             $password = post('password');
             $rol = post('rol');
+            $usuarioActual = post('usuario_actual'); // Usuario que está creando
 
             if ($usuario === '' || $password === '' || $rol === '') {
                 responder(false, 'Usuario, contraseña y rol son obligatorios.');
@@ -279,6 +310,13 @@ try {
                 'contrasena' => $hash,
             ]);
 
+            if ($usuarioActual !== '') {
+                $idUser = idUsuarioPorLogin($conexion, $usuarioActual);
+                if ($idUser !== null) {
+                    registrarAuditoria($conexion, $idUser, 'Creó Usuario', "Usuario: $usuario");
+                }
+            }
+
             responder(true, 'Usuario registrado en base de datos.');
             break;
 
@@ -301,6 +339,7 @@ try {
             $password = post('password');
             $rol = post('rol');
             $estado = postInt('estado', 1) === 1 ? 1 : 0;
+            $usuarioActual = post('usuario_actual');
 
             if ($usuarioOriginal === '' || $usuarioNuevo === '' || $rol === '') {
                 responder(false, 'Usuario original, usuario nuevo y rol son obligatorios.');
@@ -338,6 +377,13 @@ try {
             $actualizar->execute($params);
             if ($actualizar->rowCount() === 0) {
                 responder(false, 'No se encontró el usuario en base de datos.');
+            }
+
+            if ($usuarioActual !== '') {
+                $idUser = idUsuarioPorLogin($conexion, $usuarioActual);
+                if ($idUser !== null) {
+                    registrarAuditoria($conexion, $idUser, 'Actualizó Usuario', "Usuario: $usuarioNuevo");
+                }
             }
 
             responder(true, 'Usuario actualizado en base de datos.');
@@ -668,6 +714,15 @@ try {
             ]);
 
             responder(true, 'Auditoría registrada.');
+            break;
+
+        case 'verificar_auditorias':
+            $count = $conexion->query('SELECT COUNT(*) FROM auditorias')->fetchColumn();
+            $exists = tablaExiste($conexion, 'auditorias');
+            responder(true, 'Verificación de auditorías.', [
+                'tabla_existe' => $exists,
+                'registros' => (int)$count,
+            ]);
             break;
 
         default:
