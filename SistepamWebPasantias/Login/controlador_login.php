@@ -57,7 +57,7 @@ function actualizarUltimaConexion(PDO $conexion, string $usuario): void
 if (isset($_GET['salir'])) {
     session_unset();
     session_destroy();
-    header('Location: login.php');
+    header('Location: ../../PaginaPromocion/index.php');
     exit();
 }
 

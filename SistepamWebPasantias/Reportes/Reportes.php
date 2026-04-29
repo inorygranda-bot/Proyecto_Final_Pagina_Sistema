@@ -12,6 +12,10 @@
                 <i class="fas fa-exclamation-circle" aria-hidden="true"></i>
                 Incidencias
             </button>
+            <button type="button" class="ReportesPestaña" id="BtnPestañaNomina" data-panel="panelNomina">
+                <i class="fas fa-file-alt" aria-hidden="true"></i>
+                Nómina
+            </button>
 <!-- Aqui se van a agregar mas botones para las demas funciones QUE NO SE HICIERON POR SANTIAGO -->
         </nav> 
 
@@ -70,5 +74,35 @@
                 </table>
             </div>
         </section>
+    </article>
+
+    <article id="panelNomina" class="ReportesPanel" role="tabpanel" aria-labelledby="BtnPestañaNomina" hidden>
+        <header class="ReportesPanel__head">
+            <h3>Nómina</h3>
+            <p>Generar archivo de nómina en diferentes formatos.</p>
+        </header>
+
+        <form id="FormNomina" class="ReportesFormulario" autocomplete="off">
+            <fieldset class="ReportesFieldset">
+                <legend>Formato del archivo</legend>
+                <label class="ReportesRadio">
+                    <input type="radio" name="formato" value="txt" required checked>
+                    TXT
+                </label>
+                <label class="ReportesRadio">
+                    <input type="radio" name="formato" value="pdf" required>
+                    PDF
+                </label>
+                <label class="ReportesRadio">
+                    <input type="radio" name="formato" value="excel" required>
+                    Excel
+                </label>
+            </fieldset>
+
+            <footer class="ReportesFormulario__acciones">
+                <button type="button" class="ReportesBtn ReportesBtn--secundario" onclick="volverMenuReportes()">Volver al menú</button>
+                <button type="submit" class="ReportesBtn ReportesBtn--primario">Generar archivo</button>
+            </footer>
+        </form>
     </article>
 </section>

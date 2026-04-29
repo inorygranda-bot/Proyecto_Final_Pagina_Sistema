@@ -1,3 +1,13 @@
+<?php
+declare(strict_types=1);
+
+session_start();
+
+if (!empty($_SESSION['usuario'])) {
+    header('Location: ../index.php');
+    exit();
+}
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -6,18 +16,6 @@
     <title>Acceso al Sistema</title>
     <link rel="stylesheet" href="login.css?v=2">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script>
-        /* validacion rapida de sesion para evitar entrar si ya estas logueado */
-        try {
-            const raw = sessionStorage.getItem("usuario_activo");
-            if (raw) {
-                const usuario = JSON.parse(raw);
-                if (usuario) window.location.href = "../index.php";
-            }
-        } catch (e) { 
-            sessionStorage.removeItem("usuario_activo"); 
-        }
-    </script>
 </head>
 <body>
 
@@ -30,9 +28,7 @@
             </header>
 
             <article id="ContenedorError">
-                <?php 
-                session_start();
-                if (isset($_SESSION['error'])): ?>
+                <?php if (isset($_SESSION['error'])): ?>
                     <p id="MensajeError" class="ErrorMensaje" style="display:block;">
                         <?php echo $_SESSION['error']; unset($_SESSION['error']); ?>
                     </p>
@@ -53,8 +49,12 @@
                     <input type="password" id="password" name="password_login" placeholder="Contraseña" required>
                 </fieldset>
 
-                <button type="submit" class="LoginButton">INICIAR SESIÓN</button>
+<button type="submit" class="LoginButton">INICIAR SESIÓN</button>
             </form>
+
+            <a href="../../PaginaPromocion/index.php" style="display:block; text-align:center; margin-top:15px; color:#64748b; text-decoration:none; font-size:0.9rem;">
+                ← Volver a la página principal
+            </a>
         </section>
 
         <aside class="LoginVisualSide">

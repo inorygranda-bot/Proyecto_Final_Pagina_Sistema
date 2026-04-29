@@ -1,9 +1,5 @@
-const STORAGE_USUARIO_ACTIVO = "usuario_activo";
-const STORAGE_DATOS_GESTION = "datos_gestion";
-const STORAGE_ROLES_SISTEMA = "roles_sistema";
-const STORAGE_AUDITORIAS = "auditorias"; // Como Emily lo estaba definiendo asi yo tmb jiji
-
-const URL_LOGIN = "Login/login.php";
+const URL_SALIR = "../../PaginaPromocion/index.php";
+const URL_LOGIN_FORM = "Login/login.php";
 const URL_GESTION_API = "datos/gestion_api.php";
 
 /* Fallback para evitar errores si otro módulo llama auditoría antes de tiempo */
@@ -11,34 +7,36 @@ if (typeof window.registrarAuditoria !== "function") {
     window.registrarAuditoria = function() {};
 }
 
-/* Parse seguro para evitar errores si el localStorage tiene basura */
-function parseUsuarioActivoSeguro() {
+/**
+ * La sesión se define en servidor (PHP $_SESSION).
+ * Este script sólo enlaza ese JSON embebido en index.php como estado del cliente.
+ */
+function parseSesionPhpSeguro() {
     try {
-        const raw = sessionStorage.getItem(STORAGE_USUARIO_ACTIVO);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
+        const tag = document.getElementById("__sesionPhp");
+        if (!tag || !tag.textContent) return null;
+        const parsed = JSON.parse(tag.textContent);
         return parsed && typeof parsed === "object" ? parsed : null;
     } catch (e) {
-        console.warn("usuario_activo no es JSON valido; se limpia.", e);
-        sessionStorage.removeItem(STORAGE_USUARIO_ACTIVO);
+        console.warn("__sesionPhp no es JSON válido.", e);
         return null;
     }
 }
 
-let usuarioActivo = parseUsuarioActivoSeguro();
+let usuarioActivo = parseSesionPhpSeguro();
 
 /* Redireccion automatica si se intenta entrar sin estar logueado */
 if (!usuarioActivo) {
-    if (!window.location.href.includes(URL_LOGIN)) {
-        window.location.href = URL_LOGIN;
+    if (!window.location.href.includes("Login/login.php")) {
+        window.location.href = URL_LOGIN_FORM;
     }
 }
 
-/* Borrado de sesion y salida al login */
+/* Borrado de sesion y salida a la pagina promocional */
 function cerrarSesion(e) {
     if (e) e.preventDefault();
-    sessionStorage.removeItem(STORAGE_USUARIO_ACTIVO);
-    window.location.href = URL_LOGIN;
+    // Primero destruir sesion PHP, luego redirigir a pagina promocional
+    window.location.href = "Login/controlador_login.php?salir=1";
 }
 
 /* Funcion para resetear el sistema durante pruebas de desarrollo */
@@ -51,7 +49,8 @@ function limpiarDatosPrueba() {
 /* Helper para validar si el rol o permisos permiten ver un modulo */
 function verificarAcceso(modulo) {
     if (!usuarioActivo) return false;
-    const esAdmin = usuarioActivo.rol === "admin";
+    const rolTxt = String(usuarioActivo.rol || "");
+    const esAdmin = rolTxt === "admin" || /admin/i.test(rolTxt);
     const tienePermiso = usuarioActivo.permisos?.includes(modulo);
     return esAdmin || tienePermiso;
 }
@@ -133,7 +132,6 @@ window.cerrarSesion = cerrarSesion;
 window.limpiarDatosPrueba = limpiarDatosPrueba;
 window.verificarAcceso = verificarAcceso;
 window.usuarioActivo = usuarioActivo;
-window.STORAGE_AUDITORIAS = STORAGE_AUDITORIAS;
 
 function registrarAuditoria(accion, detalle) {
     if (!usuarioActivo) {
@@ -142,14 +140,6 @@ function registrarAuditoria(accion, detalle) {
     }
 
     const usuario = usuarioActivo.usuario || "Desconocido";
-    const fecha = new Date().toLocaleString("es-VE", { timeZone: "America/Caracas" }); // Formato local de Venezuela
-
-    const registro = {
-        usuario: usuario,
-        accion: accion,
-        detalle: detalle,
-        fecha: fecha
-    };
 
     try {
         fetch(URL_GESTION_API, {
@@ -157,10 +147,9 @@ function registrarAuditoria(accion, detalle) {
             headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
             body: new URLSearchParams({
                 accion: "registrar_auditoria",
-                usuario: registro.usuario,
-                accion_auditoria: registro.accion,
-                detalle: registro.detalle,
-                fecha: registro.fecha,
+                usuario: usuario,
+                accion_auditoria: accion,
+                detalle: detalle,
             }),
         }).catch((err) => {
             console.error("No se pudo registrar la auditoría en BD:", err);

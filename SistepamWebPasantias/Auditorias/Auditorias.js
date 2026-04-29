@@ -19,7 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     /**
      * Función principal para cargar y renderizar los registros de auditoría en la tabla.
-     * Esta función recupera los datos del almacenamiento local (localStorage)
+     * Los registros se leen desde la tabla `auditorias` mediante la API.
      * y construye dinámicamente las filas de la tabla de auditorías.
      */
     async function cargarAuditorias() {

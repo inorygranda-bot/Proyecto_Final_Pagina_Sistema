@@ -11,7 +11,7 @@
 
 /* cabecera con acciones */
 .CabeceraAuditoria {
-    display: flex;
+    display: flex;J
     flex-wrap: wrap;
     align-items: flex-end;
     justify-content: space-between;

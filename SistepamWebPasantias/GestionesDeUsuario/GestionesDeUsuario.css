@@ -432,3 +432,13 @@ tr:hover td {
 /* botones adicionales */
 .BtnPrimario { background: #2c5f8d; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
 .BtnSecundario { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; padding: 12px 20px; border-radius: 8px; cursor: pointer; }
+
+/*esto es el arregleishon de la tarjeta de nuevo usuario*/
+.Overlay.ModalAncho {
+    width: 100%;
+    max-width: 100%;
+}
+
+.Overlay.ModalAncho .Modal {
+    max-width: 650px;
+}

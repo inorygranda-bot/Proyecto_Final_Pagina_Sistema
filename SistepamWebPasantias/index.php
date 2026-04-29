@@ -1,5 +1,54 @@
 <?php
+declare(strict_types=1);
+
 session_start();
+
+require_once __DIR__ . '/datos/conexionBD.php';
+require_once __DIR__ . '/datos/helpers_gestion_bd.php';
+
+if (!isset($_SESSION['usuario'])) {
+    header('Location: Login/login.php');
+    exit();
+}
+
+$migrarOk = false;
+try {
+    $pdoSesion = obtenerConexionPdo();
+    migrarEsquemaAplicacionOpcional($pdoSesion);
+    $migrarOk = true;
+} catch (Throwable $e) {
+    error_log('index.php sesión BD: ' . $e->getMessage());
+}
+
+$modsCompletos = ['registro', 'consulta', 'horarios', 'reportes', 'gestion'];
+$usuarioLogin = (string)$_SESSION['usuario'];
+$nombreSesionRol = strtolower((string)($_SESSION['rol'] ?? ''));
+
+$permisosModulos = [];
+if ($migrarOk && isset($pdoSesion)) {
+    try {
+        $permisosModulos = obtenerModulosUsuario($pdoSesion, $usuarioLogin);
+    } catch (Throwable $e) {
+        $permisosModulos = [];
+    }
+}
+
+if ($nombreSesionRol === 'admin' || strpos($nombreSesionRol, 'admin') !== false) {
+    $permisosModulos = $modsCompletos;
+} elseif ($nombreSesionRol === 'analista' || strpos($nombreSesionRol, 'analista') !== false) {
+    if ($permisosModulos === []) {
+        $permisosModulos = ['consulta', 'horarios', 'reportes'];
+    }
+}
+
+$sesionClienteJson = json_encode([
+    'usuario' => $usuarioLogin,
+    'nombre' => $usuarioLogin,
+    'rol' => ($nombreSesionRol !== '' && (strpos($nombreSesionRol, 'admin') !== false || $nombreSesionRol === 'admin'))
+        ? 'admin'
+        : 'analista',
+    'permisos' => array_values(array_unique($permisosModulos)),
+], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
 
 // Toma el parámetro 'p' de la URL, o 'inicio' si no existe
 $p = $_GET['p'] ?? 'inicio';
@@ -12,8 +61,9 @@ $p = $_GET['p'] ?? 'inicio';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Gestión</title>
 
+    <script type="application/json" id="__sesionPhp"><?php echo $sesionClienteJson ?: '{}'; ?></script>
     <!-- Recursos globales -->
-    <script src="./index.js?v=2"></script>
+    <script src="./index.js?v=3"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="./index.css?v=5">
 
@@ -99,16 +149,8 @@ $p = $_GET['p'] ?? 'inicio';
 <?php
 if ($p === 'registro') echo '<script src="./Registro/Registro.js"></script>';
 if ($p === 'horarios' || $p === 'consulta') {
-    echo '<script src="./Calendario/Calendario.js"></script>';
-    if ($p === 'consulta') echo '<script src="./Consulta/Consulta.js"></script>';
-    if ($p === 'horarios') {
-        echo '<script>
-            document.addEventListener("DOMContentLoaded", () => {
-                const cal = document.getElementById("Calendario");
-                if(cal) cal.style.display = "block";
-            });
-        </script>';
-    }
+    echo '<script src="./Calendario/Calendario.js?v=2"></script>';
+    if ($p === 'consulta') echo '<script src="./Consulta/Consulta.js?v=2"></script>';
 }
 if ($p === 'gestion') echo '<script src="./GestionesDeUsuario/GestionesdeUsuario.js"></script>';
 if ($p === 'reportes') echo '<script src="./Reportes/Reportes.js"></script>';

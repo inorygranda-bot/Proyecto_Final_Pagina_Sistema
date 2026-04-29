@@ -1,51 +1,65 @@
+/*
+ * ============================================================
+ * CALENDARIO - GESTIÓN DE HORARIOS LABORALES
+ * ============================================================
+ * Controla:
+ *   1. Selects "¿Para quién programa?" (Empresa → Depto → Empleado)
+ *   2. Rejilla de calendario mensual con feriados y horarios
+ *   3. Sincronización con Google Calendar (feriados Venezuela)
+ *   4. Editor de días (feriados y horarios por fecha)
+ *
+ * CORRECCIONES APLICADAS (Abril 2026):
+ *   - Selects ahora se llenan desde datosSistema.empresas,
+ *     datosSistema.departamentos, datosSistema.empleados
+ *     (estructura que devuelve helpers_gestion_bd.php).
+ *   - DOMContentLoaded espera correctamente la carga asíncrona.
+ *   - Sincronización Google usa ruta absoluta desde la raíz.
+ *   - Mensajes de error descriptivos en cada paso.
+ * ============================================================
+ */
+
+// Estado global del calendario
 let nivelActual = "";
 let idActual = null;
 let empresaActual = "";
 let deptoActual = "";
 let idEmpleadoActual = null;
+
 let fechaActual = new Date();
 let fechaGlobal = null;
 
-function obtenerHorarioActualParaInputs(fecha) {
-    asegurarCalendarios();
-    const fs = fecha.toISOString().split("T")[0];
-    const dow = String(fecha.getDay());
-    const capa = calCapaNivel();
-    const idEnt = calIdEntidadActiva();
+// Datos del sistema (empresas, departamentos, empleados, calendarios)
+let datosSistema = {};
 
-    let h = datosSistema.calendarios.horariosFecha[capa]?.[idEnt]?.[fs];
-    
-    if (!h) {
-        h = datosSistema.calendarios.horariosSemana[capa]?.[idEnt]?.[dow];
-    }
-    
-    if (!h) {
-        const clave = keyHorarioActual();
-        const hCapas = datosSistema.calendarios.horarios;
-        if (clave.tipo === "general") {
-            h = hCapas.general;
-        } else {
-            h = hCapas[clave.tipo][clave.id] || hCapas.general;
-        }
-    }
-
-    return h || { desdeM: "", hastaM: "", desdeT: "", hastaT: "" };
-}
-
-function parseDatosGestionSeguro() {
-    return datosSistema && typeof datosSistema === "object" ? datosSistema : {};
-}
-
-let datosSistema = parseDatosGestionSeguro();
-
+// Constante para la capa general
 const CAL_ID_GLOBAL = "_";
 
+/*
+ * ============================================================
+ * FUNCIONES DE INICIALIZACIÓN Y ESTRUCTURA DE DATOS
+ * ============================================================
+ */
+
+/**
+ * Asegura que la estructura de datosSistema.calendarios tenga
+ * todas las propiedades necesarias para no generar errores.
+ */
 function asegurarCalendarios() {
-    if (!datosSistema.calendarios) datosSistema.calendarios = {};
-    if (!datosSistema.calendarios.general) datosSistema.calendarios.general = {};
-    if (!datosSistema.calendarios.empresas) datosSistema.calendarios.empresas = {};
-    if (!datosSistema.calendarios.departamentos) datosSistema.calendarios.departamentos = {};
-    if (!datosSistema.calendarios.empleados) datosSistema.calendarios.empleados = {};
+    if (!datosSistema.calendarios) {
+        datosSistema.calendarios = {};
+    }
+    if (!datosSistema.calendarios.general) {
+        datosSistema.calendarios.general = {};
+    }
+    if (!datosSistema.calendarios.empresas) {
+        datosSistema.calendarios.empresas = {};
+    }
+    if (!datosSistema.calendarios.departamentos) {
+        datosSistema.calendarios.departamentos = {};
+    }
+    if (!datosSistema.calendarios.empleados) {
+        datosSistema.calendarios.empleados = {};
+    }
     if (!datosSistema.calendarios.horarios) {
         datosSistema.calendarios.horarios = {
             general: null,
@@ -54,76 +68,116 @@ function asegurarCalendarios() {
             empleados: {}
         };
     }
-    if (!datosSistema.calendarios.horarios.empleados) datosSistema.calendarios.horarios.empleados = {};
-    const capas = ["general", "empresas", "departamentos", "empleados"];
-    if (!datosSistema.calendarios.horariosFecha) datosSistema.calendarios.horariosFecha = {};
-    if (!datosSistema.calendarios.horariosSemana) datosSistema.calendarios.horariosSemana = {};
-    if (!datosSistema.calendarios.feriadosSemana) datosSistema.calendarios.feriadosSemana = {};
-    capas.forEach((k) => {
-        if (!datosSistema.calendarios.horariosFecha[k]) datosSistema.calendarios.horariosFecha[k] = {};
-        if (!datosSistema.calendarios.horariosSemana[k]) datosSistema.calendarios.horariosSemana[k] = {};
-        if (!datosSistema.calendarios.feriadosSemana[k]) datosSistema.calendarios.feriadosSemana[k] = {};
-    });
-}
-
-async function guardarDatosCalendario() {
-    asegurarCalendarios();
-    const respuesta = await fetch("datos/gestion_api.php", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
-        body: new URLSearchParams({
-            accion: "guardar_datos_sistema",
-            datos: JSON.stringify(datosSistema),
-        }),
-    });
-    const resultado = await respuesta.json();
-    if (!resultado?.ok) {
-        throw new Error(resultado?.mensaje || "No se pudo guardar calendario en base de datos.");
+    if (!datosSistema.calendarios.horarios.empleados) {
+        datosSistema.calendarios.horarios.empleados = {};
     }
+
+    const capas = ["general", "empresas", "departamentos", "empleados"];
+
+    if (!datosSistema.calendarios.horariosFecha) {
+        datosSistema.calendarios.horariosFecha = {};
+    }
+    if (!datosSistema.calendarios.horariosSemana) {
+        datosSistema.calendarios.horariosSemana = {};
+    }
+    if (!datosSistema.calendarios.feriadosSemana) {
+        datosSistema.calendarios.feriadosSemana = {};
+    }
+
+    capas.forEach(function (k) {
+        if (!datosSistema.calendarios.horariosFecha[k]) {
+            datosSistema.calendarios.horariosFecha[k] = {};
+        }
+        if (!datosSistema.calendarios.horariosSemana[k]) {
+            datosSistema.calendarios.horariosSemana[k] = {};
+        }
+        if (!datosSistema.calendarios.feriadosSemana[k]) {
+            datosSistema.calendarios.feriadosSemana[k] = {};
+        }
+    });
 }
 
+/**
+ * Carga los datos del sistema desde la base de datos a través de la API.
+ * Estos datos incluyen: empresas, departamentos, empleados y calendarios.
+ */
 async function cargarDatosCalendarioDesdeBD() {
     try {
-        const respuesta = await fetch("datos/gestion_api.php", {
+        var respuesta = await fetch("datos/gestion_api.php", {
             method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
-            body: new URLSearchParams({ accion: "obtener_datos_sistema" }),
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
+            },
+            body: new URLSearchParams({
+                accion: "obtener_datos_sistema"
+            })
         });
-        const resultado = await respuesta.json();
-        if (resultado?.ok && resultado?.data?.datos) {
+
+        var resultado = await respuesta.json();
+
+        if (resultado && resultado.ok && resultado.data && resultado.data.datos) {
+            // Asignar los datos cargados
             datosSistema = resultado.data.datos;
         } else {
-            datosSistema = {};
+            var mensaje = resultado && resultado.mensaje ? resultado.mensaje : "Respuesta inesperada del servidor.";
+            console.error("Error al cargar datos del sistema:", mensaje);
         }
     } catch (error) {
-        console.error("No se pudo cargar calendario desde BD:", error);
-        datosSistema = {};
+        console.error("Error de conexión al cargar datos del calendario:", error);
     }
+
+    // Siempre aseguramos la estructura, incluso si falló la carga
     asegurarCalendarios();
 }
 
-function obtenerDatoHeredado(tipo, idEmpresa, idDepto = null, idEmpleado = null) {
-    const h = datosSistema.calendarios.horarios;
-    if (idEmpleado && h.empleados[idEmpleado] && h.empleados[idEmpleado].desdeM !== "") {
-        return h.empleados[idEmpleado];
+/**
+ * Guarda los datos del calendario en la base de datos.
+ */
+async function guardarDatosCalendario() {
+    asegurarCalendarios();
+
+    try {
+        var respuesta = await fetch("datos/gestion_api.php", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
+            },
+            body: new URLSearchParams({
+                accion: "guardar_datos_sistema",
+                datos: JSON.stringify(datosSistema)
+            })
+        });
+
+        var resultado = await respuesta.json();
+
+        if (!resultado || !resultado.ok) {
+            throw new Error(resultado && resultado.mensaje ? resultado.mensaje : "No se pudo guardar en base de datos.");
+        }
+    } catch (error) {
+        console.error("Error al guardar calendario:", error);
     }
-    if (idDepto && h.departamentos[idDepto] && h.departamentos[idDepto].desdeM !== "") {
-        return h.departamentos[idDepto];
-    }
-    if (idEmpresa && h.empresas[idEmpresa] && h.empresas[idEmpresa].desdeM !== "") {
-        return h.empresas[idEmpresa];
-    }
-    return h.general;
 }
 
+/*
+ * ============================================================
+ * FUNCIONES AUXILIARES DE CAPAS Y ENTIDADES
+ * ============================================================
+ */
+
+/**
+ * Devuelve el ID de la entidad activa según el nivel seleccionado.
+ */
 function calIdEntidadActiva() {
     if (nivelActual === "general") return CAL_ID_GLOBAL;
-    if (nivelActual === "empresas") return idActual || CAL_ID_GLOBAL;
-    if (nivelActual === "departamentos") return idActual || CAL_ID_GLOBAL;
+    if (nivelActual === "empresas") return empresaActual || CAL_ID_GLOBAL;
+    if (nivelActual === "departamentos") return deptoActual || CAL_ID_GLOBAL;
     if (nivelActual === "empleados") return idEmpleadoActual || CAL_ID_GLOBAL;
     return CAL_ID_GLOBAL;
 }
 
+/**
+ * Devuelve el nombre de la capa según el nivel seleccionado.
+ */
 function calCapaNivel() {
     if (nivelActual === "general") return "general";
     if (nivelActual === "empresas") return "empresas";
@@ -132,6 +186,9 @@ function calCapaNivel() {
     return "general";
 }
 
+/**
+ * Devuelve la clave del horario actual.
+ */
 function keyHorarioActual() {
     if (nivelActual === "general") return { tipo: "general", id: "general" };
     if (nivelActual === "empresas") return { tipo: "empresas", id: empresaActual };
@@ -140,84 +197,389 @@ function keyHorarioActual() {
     return { tipo: "general", id: "general" };
 }
 
-function cargarHorarioActual() {
-    const hCapas = datosSistema.calendarios.horarios;
-    let r = null;
-    if (nivelActual === "empleados") {
-        r = hCapas.empleados[idEmpleadoActual];
-    } else if (nivelActual === "departamentos") {
-        r = hCapas.departamentos[deptoActual];
-    } else if (nivelActual === "empresas") {
-        r = hCapas.empresas[empresaActual];
+/*
+ * ============================================================
+ * LLENADO DE SELECTS "¿PARA QUIÉN PROGRAMA?"
+ * ============================================================
+ */
+
+/**
+ * Llena los selects de Empresa, Departamento y Empleado.
+ *
+ * @param {string} origen - "inicial" para llenar todo desde cero,
+ *                          "empresa" cuando cambia el select de empresa,
+ *                          "depto" cuando cambia el select de departamento.
+ */
+function calRellenarSelectContexto(origen) {
+    var selE = document.getElementById("CalSelEmpresa");
+    var selD = document.getElementById("CalSelDepto");
+    var selEm = document.getElementById("CalSelEmpleado");
+
+    if (!selE || !selD || !selEm) {
+        return;
     }
-    if (!r) r = hCapas.general;
-    document.getElementById("HoraDesdeM").value = (r && r.desdeM) ? r.desdeM : "";
-    document.getElementById("HoraHastaM").value = (r && r.hastaM) ? r.hastaM : "";
-    document.getElementById("HoraDesdeT").value = (r && r.desdeT) ? r.desdeT : "";
-    document.getElementById("HoraHastaT").value = (r && r.hastaT) ? r.hastaT : "";
+
+    // --- LLENADO INICIAL (primera carga de la página) ---
+    if (!origen || origen === "inicial") {
+
+        // LIMPIAR Y LLENAR SELECT DE EMPRESA
+        selE.innerHTML = '<option value="">— Seleccione una Empresa —</option>';
+
+        var empresas = (Array.isArray(datosSistema.empresas)) ? datosSistema.empresas : [];
+
+        if (empresas.length === 0) {
+            // No hay empresas: mostramos opción deshabilitada informativa
+            selE.innerHTML += '<option value="" disabled>No hay empresas registradas</option>';
+        } else {
+            // Hay empresas: las agregamos al select
+            for (var i = 0; i < empresas.length; i++) {
+                var emp = empresas[i];
+                var opt = document.createElement("option");
+                opt.value = emp.nombre;
+                opt.textContent = emp.nombre;
+                selE.appendChild(opt);
+            }
+        }
+
+        // LIMPIAR Y DESHABILITAR SELECT DE DEPARTAMENTO
+        selD.innerHTML = '<option value="">— Elija departamento —</option>';
+        selD.disabled = true;
+
+        // LIMPIAR Y DESHABILITAR SELECT DE EMPLEADO
+        selEm.innerHTML = '<option value="">— Elija empleado —</option>';
+        selEm.disabled = true;
+
+        // DESHABILITAR BOTÓN APLICAR
+        var btnAplicar = document.querySelector(".ctx-aplicar");
+        if (btnAplicar) {
+            btnAplicar.disabled = true;
+        }
+
+        return;
+    }
+
+    // --- CAMBIO EN SELECT DE EMPRESA ---
+    if (origen === "empresa") {
+        var empSeleccionada = selE.value;
+
+        // Limpiar y preparar select de departamento
+        selD.innerHTML = '<option value="">— Elija departamento —</option>';
+        selEm.innerHTML = '<option value="">— Elija empleado —</option>';
+        selEm.disabled = true;
+
+        if (empSeleccionada !== "") {
+            selD.disabled = false;
+
+            var todosLosDeptos = (Array.isArray(datosSistema.departamentos)) ? datosSistema.departamentos : [];
+
+            // Filtrar departamentos que pertenecen a la empresa seleccionada
+            var filtrados = [];
+            for (var j = 0; j < todosLosDeptos.length; j++) {
+                var depto = todosLosDeptos[j];
+                var nombreEmpresaDepto = (depto.empresa || "").trim().toLowerCase();
+                var nombreEmpresaSel = empSeleccionada.trim().toLowerCase();
+
+                if (nombreEmpresaDepto === nombreEmpresaSel) {
+                    filtrados.push(depto);
+                }
+            }
+
+            if (filtrados.length === 0) {
+                selD.innerHTML += '<option value="" disabled>No hay departamentos para esta empresa</option>';
+            } else {
+                for (var k = 0; k < filtrados.length; k++) {
+                    var d = filtrados[k];
+                    var optDepto = document.createElement("option");
+                    optDepto.value = d.nombre;
+                    optDepto.textContent = d.nombre;
+                    selD.appendChild(optDepto);
+                }
+            }
+        } else {
+            selD.disabled = true;
+        }
+    }
+
+    // --- CAMBIO EN SELECT DE DEPARTAMENTO ---
+    if (origen === "depto") {
+        var empActual = selE.value;
+        var deptoSeleccionado = selD.value;
+
+        // Limpiar select de empleado
+        selEm.innerHTML = '<option value="">— Elija empleado —</option>';
+
+        if (deptoSeleccionado !== "") {
+            selEm.disabled = false;
+
+            var todosLosEmpleados = (Array.isArray(datosSistema.empleados)) ? datosSistema.empleados : [];
+
+            // Filtrar empleados por empresa Y departamento
+            var filtradosEm = [];
+            for (var m = 0; m < todosLosEmpleados.length; m++) {
+                var empleado = todosLosEmpleados[m];
+                var empEmpleado = (empleado.empresa || "").trim().toLowerCase();
+                var deptoEmpleado = (empleado.depto || "").trim().toLowerCase();
+                var empSel = empActual.trim().toLowerCase();
+                var deptoSel = deptoSeleccionado.trim().toLowerCase();
+
+                if (empEmpleado === empSel && deptoEmpleado === deptoSel) {
+                    filtradosEm.push(empleado);
+                }
+            }
+
+            if (filtradosEm.length === 0) {
+                selEm.innerHTML += '<option value="" disabled>No hay empleados en este departamento</option>';
+            } else {
+                for (var n = 0; n < filtradosEm.length; n++) {
+                    var e = filtradosEm[n];
+                    var textoEmpleado = (e.nombres || "") + " " + (e.apellidos || "");
+                    var optEmpleado = document.createElement("option");
+                    optEmpleado.value = e.cedula || "";
+                    optEmpleado.textContent = textoEmpleado.trim();
+                    selEm.appendChild(optEmpleado);
+                }
+            }
+        } else {
+            selEm.disabled = true;
+        }
+    }
+
+    // Habilitar/deshabilitar botón Aplicar según haya empresa seleccionada
+    var btnAplicarFinal = document.querySelector(".ctx-aplicar");
+    if (btnAplicarFinal) {
+        btnAplicarFinal.disabled = (selE.value === "");
+    }
 }
 
+/**
+ * Aplica la selección de los selects al contexto del calendario.
+ */
+function calAplicarContextoDesdeSelects() {
+    var elEmp = document.getElementById("CalSelEmpresa");
+    var elDep = document.getElementById("CalSelDepto");
+    var elCed = document.getElementById("CalSelEmpleado");
+
+    var emp = (elEmp && elEmp.value) ? elEmp.value : "";
+    var dep = (elDep && elDep.value) ? elDep.value : "";
+    var ced = (elCed && elCed.value) ? elCed.value : "";
+
+    if (emp === "") {
+        return;
+    }
+
+    empresaActual = emp;
+    deptoActual = dep;
+    idEmpleadoActual = ced || null;
+
+    if (ced !== "") {
+        // Buscar nombre del empleado
+        var empleadosArr = (Array.isArray(datosSistema.empleados)) ? datosSistema.empleados : [];
+        var empleadoEncontrado = null;
+        for (var a = 0; a < empleadosArr.length; a++) {
+            if (empleadosArr[a].cedula === ced) {
+                empleadoEncontrado = empleadosArr[a];
+                break;
+            }
+        }
+        var nom = empleadoEncontrado
+            ? ((empleadoEncontrado.nombres || "") + " " + (empleadoEncontrado.apellidos || "")).trim()
+            : ced;
+        verCalendarioDeEmpleado(ced, nom, dep, emp);
+    } else if (dep !== "") {
+        verCalendarioDepartamento(dep, emp);
+    } else {
+        verCalendarioEmpresa(emp);
+    }
+}
+
+/*
+ * ============================================================
+ * HORARIOS
+ * ============================================================
+ */
+
+/**
+ * Obtiene el horario para mostrar en los inputs del editor de día.
+ */
+function obtenerHorarioActualParaInputs(fecha) {
+    asegurarCalendarios();
+
+    var fs = fecha.toISOString().split("T")[0];
+    var dow = String(fecha.getDay());
+    var capa = calCapaNivel();
+    var idEnt = calIdEntidadActiva();
+
+    var h = null;
+
+    // 1. Buscar horario específico para esa fecha
+    if (datosSistema.calendarios.horariosFecha[capa] && datosSistema.calendarios.horariosFecha[capa][idEnt]) {
+        h = datosSistema.calendarios.horariosFecha[capa][idEnt][fs];
+    }
+
+    // 2. Buscar horario para ese día de la semana
+    if (!h) {
+        if (datosSistema.calendarios.horariosSemana[capa] && datosSistema.calendarios.horariosSemana[capa][idEnt]) {
+            h = datosSistema.calendarios.horariosSemana[capa][idEnt][dow];
+        }
+    }
+
+    // 3. Buscar horario de la capa actual
+    if (!h) {
+        var clave = keyHorarioActual();
+        var hCapas = datosSistema.calendarios.horarios;
+        if (clave.tipo === "general") {
+            h = hCapas.general;
+        } else {
+            h = (hCapas[clave.tipo] && hCapas[clave.tipo][clave.id]) ? hCapas[clave.tipo][clave.id] : null;
+            if (!h || !h.desdeM) {
+                h = hCapas.general;
+            }
+        }
+    }
+
+    return h || { desdeM: "", hastaM: "", desdeT: "", hastaT: "" };
+}
+
+/**
+ * Carga el horario de la capa actual en el formulario.
+ */
+function cargarHorarioActual() {
+    var hCapas = datosSistema.calendarios.horarios;
+    var r = null;
+
+    if (nivelActual === "empleados" && idEmpleadoActual) {
+        r = hCapas.empleados[idEmpleadoActual];
+    } else if (nivelActual === "departamentos" && deptoActual) {
+        r = hCapas.departamentos[deptoActual];
+    } else if (nivelActual === "empresas" && empresaActual) {
+        r = hCapas.empresas[empresaActual];
+    }
+
+    if (!r || !r.desdeM) {
+        r = hCapas.general;
+    }
+
+    var inputDesdeM = document.getElementById("HoraDesdeM");
+    var inputHastaM = document.getElementById("HoraHastaM");
+    var inputDesdeT = document.getElementById("HoraDesdeT");
+    var inputHastaT = document.getElementById("HoraHastaT");
+
+    if (inputDesdeM) inputDesdeM.value = (r && r.desdeM) ? r.desdeM : "";
+    if (inputHastaM) inputHastaM.value = (r && r.hastaM) ? r.hastaM : "";
+    if (inputDesdeT) inputDesdeT.value = (r && r.desdeT) ? r.desdeT : "";
+    if (inputHastaT) inputHastaT.value = (r && r.hastaT) ? r.hastaT : "";
+}
+
+/**
+ * Guarda el horario de la capa actual.
+ */
 async function guardarHorarioActual(e) {
     e.preventDefault();
-    const h = {
+
+    var h = {
         desdeM: document.getElementById("HoraDesdeM").value,
         hastaM: document.getElementById("HoraHastaM").value,
         desdeT: document.getElementById("HoraDesdeT").value,
         hastaT: document.getElementById("HoraHastaT").value
     };
-    if (!h.desdeM || !h.hastaM) return alert("El turno de la mañana es obligatorio.");
-    const clave = keyHorarioActual();
-    const capa = datosSistema.calendarios.horarios;
-    if (clave.tipo === "general") capa.general = h;
-    else if (clave.tipo === "empresas") capa.empresas[clave.id] = h;
-    else if (clave.tipo === "departamentos") capa.departamentos[clave.id] = h;
-    else if (clave.tipo === "empleados") capa.empleados[clave.id] = h;
-    window.registrarAuditoria("Guardó Horario General/Capa", `Horario general/capa ${clave.tipo} para ID: ${clave.id} (desdeM: ${h.desdeM}, hastaM: ${h.hastaM}, desdeT: ${h.desdeT}, hastaT: ${h.hastaT})`);
+
+    if (!h.desdeM || !h.hastaM) {
+        return alert("El turno de la mañana es obligatorio.");
+    }
+
+    var clave = keyHorarioActual();
+    var capa = datosSistema.calendarios.horarios;
+
+    if (clave.tipo === "general") {
+        capa.general = h;
+    } else if (clave.tipo === "empresas") {
+        capa.empresas[clave.id] = h;
+    } else if (clave.tipo === "departamentos") {
+        capa.departamentos[clave.id] = h;
+    } else if (clave.tipo === "empleados") {
+        capa.empleados[clave.id] = h;
+    }
+
+    if (typeof window.registrarAuditoria === "function") {
+        window.registrarAuditoria(
+            "Guardó Horario",
+            "Horario " + clave.tipo + " para ID: " + clave.id + " (Mañana: " + h.desdeM + "-" + h.hastaM + ", Tarde: " + h.desdeT + "-" + h.hastaT + ")"
+        );
+    }
+
     await guardarDatosCalendario();
     renderizarCalendario();
-    alert("Horarios de doble turno guardados.");
+    alert("Horarios guardados correctamente.");
 }
 
+/*
+ * ============================================================
+ * FERIADOS Y ESTADO DE DÍAS
+ * ============================================================
+ */
+
 function normalizarFeriadoValor(v) {
-    if (v == null) return null;
+    if (v === null || v === undefined) return null;
     if (typeof v === "string") return { motivo: v, laboral: false };
-    if (typeof v === "object" && v.hasOwnProperty('motivo')) return { motivo: String(v.motivo), laboral: !!v.laboral };
+    if (typeof v === "object" && v.hasOwnProperty("motivo")) {
+        return { motivo: String(v.motivo), laboral: !!v.laboral };
+    }
     return null;
 }
 
 function leerFeriadoEnCapa(capa, idEnt, fs, dowStr) {
-    const c = datosSistema.calendarios;
+    var c = datosSistema.calendarios;
+
     if (capa === "general") {
-        const porFecha = c.general[fs];
-        const n1 = normalizarFeriadoValor(porFecha);
-        if (n1) return { ...n1, capa: "general", idEnt: CAL_ID_GLOBAL, origen: "fecha" };
-        const sem = c.feriadosSemana?.general?.[CAL_ID_GLOBAL]?.[dowStr];
-        const n2 = normalizarFeriadoValor(sem);
-        if (n2) return { ...n2, capa: "general", idEnt: CAL_ID_GLOBAL, origen: "semana" };
+        var porFecha = c.general[fs];
+        var n1 = normalizarFeriadoValor(porFecha);
+        if (n1) return { motivo: n1.motivo, laboral: n1.laboral, capa: "general", idEnt: CAL_ID_GLOBAL, origen: "fecha" };
+
+        var sem = (c.feriadosSemana && c.feriadosSemana.general && c.feriadosSemana.general[CAL_ID_GLOBAL])
+            ? c.feriadosSemana.general[CAL_ID_GLOBAL][dowStr]
+            : null;
+        var n2 = normalizarFeriadoValor(sem);
+        if (n2) return { motivo: n2.motivo, laboral: n2.laboral, capa: "general", idEnt: CAL_ID_GLOBAL, origen: "semana" };
+
         return null;
     }
-    const mapa = c[capa];
+
+    var mapa = c[capa];
     if (!mapa || !idEnt) return null;
-    const porFecha = mapa[idEnt]?.[fs];
-    const n1 = normalizarFeriadoValor(porFecha);
-    if (n1) return { ...n1, capa, idEnt, origen: "fecha" };
-    const sem = c.feriadosSemana?.[capa]?.[idEnt]?.[dowStr];
-    const n2 = normalizarFeriadoValor(sem);
-    if (n2) return { ...n2, capa, idEnt, origen: "semana" };
+
+    var porFechaCapa = (mapa[idEnt]) ? mapa[idEnt][fs] : null;
+    var n1c = normalizarFeriadoValor(porFechaCapa);
+    if (n1c) return { motivo: n1c.motivo, laboral: n1c.laboral, capa: capa, idEnt: idEnt, origen: "fecha" };
+
+    var semCapa = (c.feriadosSemana && c.feriadosSemana[capa] && c.feriadosSemana[capa][idEnt])
+        ? c.feriadosSemana[capa][idEnt][dowStr]
+        : null;
+    var n2c = normalizarFeriadoValor(semCapa);
+    if (n2c) return { motivo: n2c.motivo, laboral: n2c.laboral, capa: capa, idEnt: idEnt, origen: "semana" };
+
     return null;
 }
 
-function obtenerEstadoDia(fecha){
-    const fs = fecha.toISOString().split("T")[0];
-    const dowStr = String(fecha.getDay());
-    let hallado = null;
+function obtenerEstadoDia(fecha) {
+    var fs = fecha.toISOString().split("T")[0];
+    var dowStr = String(fecha.getDay());
 
-    if(idEmpleadoActual) hallado = leerFeriadoEnCapa("empleados", idEmpleadoActual, fs, dowStr);
-    if(!hallado && deptoActual) hallado = leerFeriadoEnCapa("departamentos", deptoActual, fs, dowStr);
-    if(!hallado && empresaActual) hallado = leerFeriadoEnCapa("empresas", empresaActual, fs, dowStr);
-    if(!hallado) hallado = leerFeriadoEnCapa("general", CAL_ID_GLOBAL, fs, dowStr);
+    var hallado = null;
 
-    if(hallado){
+    if (idEmpleadoActual) {
+        hallado = leerFeriadoEnCapa("empleados", idEmpleadoActual, fs, dowStr);
+    }
+    if (!hallado && deptoActual) {
+        hallado = leerFeriadoEnCapa("departamentos", deptoActual, fs, dowStr);
+    }
+    if (!hallado && empresaActual) {
+        hallado = leerFeriadoEnCapa("empresas", empresaActual, fs, dowStr);
+    }
+    if (!hallado) {
+        hallado = leerFeriadoEnCapa("general", CAL_ID_GLOBAL, fs, dowStr);
+    }
+
+    if (hallado) {
         return {
             tipo: hallado.capa,
             motivo: hallado.motivo,
@@ -228,113 +590,94 @@ function obtenerEstadoDia(fecha){
         };
     }
 
-    return {tipo: "laboral", motivo: "", laboral: true, origen: null, capa: null, idEnt: null};
+    return { tipo: "laboral", motivo: "", laboral: true, origen: null, capa: null, idEnt: null };
 }
 
 function textoHorarioParaDia(fecha) {
     asegurarCalendarios();
-    const fs = fecha.toISOString().split("T")[0];
-    const dow = String(fecha.getDay());
-    const capa = calCapaNivel();
-    const idEnt = calIdEntidadActiva();
-    let h = datosSistema.calendarios.horariosFecha[capa]?.[idEnt]?.[fs];
-    if (!h) h = datosSistema.calendarios.horariosSemana[capa]?.[idEnt]?.[dow];
-    if (!h) {
-        const clave = keyHorarioActual();
-        const hCapas = datosSistema.calendarios.horarios;
-        if (clave.tipo === "general") h = hCapas.general;
-        else h = hCapas[clave.tipo][clave.id] || hCapas.general;
+    var fs = fecha.toISOString().split("T")[0];
+    var dow = String(fecha.getDay());
+    var capa = calCapaNivel();
+    var idEnt = calIdEntidadActiva();
+
+    var h = null;
+
+    if (datosSistema.calendarios.horariosFecha[capa] && datosSistema.calendarios.horariosFecha[capa][idEnt]) {
+        h = datosSistema.calendarios.horariosFecha[capa][idEnt][fs];
     }
+    if (!h && datosSistema.calendarios.horariosSemana[capa] && datosSistema.calendarios.horariosSemana[capa][idEnt]) {
+        h = datosSistema.calendarios.horariosSemana[capa][idEnt][dow];
+    }
+    if (!h) {
+        var clave = keyHorarioActual();
+        var hCapas = datosSistema.calendarios.horarios;
+        if (clave.tipo === "general") {
+            h = hCapas.general;
+        } else {
+            h = (hCapas[clave.tipo] && hCapas[clave.tipo][clave.id]) ? hCapas[clave.tipo][clave.id] : hCapas.general;
+        }
+    }
+
     if (h && h.desdeM && h.hastaM) {
-        let texto = `${h.desdeM}-${h.hastaM}`;
+        var texto = h.desdeM + "-" + h.hastaM;
         if (h.desdeT && h.hastaT) {
-            texto += `<br>${h.desdeT}-${h.hastaT}`;
+            texto += "<br>" + h.desdeT + "-" + h.hastaT;
         }
         return texto;
     }
+
     return "";
-}
-
-function nombreDiaSemanaES(dow) {
-    const n = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
-    return n[dow] || "día";
-}
-
-function guardarHorarioDia(fecha, soloEstaFecha) {
-    asegurarCalendarios();
-    const capa = calCapaNivel();
-    const idEnt = calIdEntidadActiva();
-    const fs = fecha.toISOString().split("T")[0];
-    const dow = String(fecha.getDay());
-    const nuevoHorario = {
-        desdeM: document.getElementById("HoraDesdeM").value,
-        hastaM: document.getElementById("HoraHastaM").value,
-        desdeT: document.getElementById("HoraDesdeT").value,
-        hastaT: document.getElementById("HoraHastaT").value
-    };
-    if (!nuevoHorario.desdeM || !nuevoHorario.hastaM) {
-        return alert("El turno de la mañana es obligatorio para asignar un horario.");
-    }
-    if (!datosSistema.calendarios.horariosFecha[capa][idEnt]) datosSistema.calendarios.horariosFecha[capa][idEnt] = {};
-    if (!datosSistema.calendarios.horariosSemana[capa][idEnt]) datosSistema.calendarios.horariosSemana[capa][idEnt] = {};
-    if (soloEstaFecha) {
-        datosSistema.calendarios.horariosFecha[capa][idEnt][fs] = nuevoHorario;
-        window.registrarAuditoria("Guardó Horario por Fecha", `Horario para fecha ${fs} (Capa: ${capa}, ID: ${idEnt}, desdeM: ${nuevoHorario.desdeM})`);
-    } else {
-        datosSistema.calendarios.horariosSemana[capa][idEnt][dow] = nuevoHorario;
-        window.registrarAuditoria("Guardó Horario por Semana", `Horario para día de semana ${dow} (Capa: ${capa}, ID: ${idEnt}, desdeM: ${nuevoHorario.desdeM})`);
-    }
-    guardarDatosCalendario();
-    renderizarCalendario();
 }
 
 function guardarFeriadoEnCapa(capa, idEnt, fs, dowStr, motivo, laboral, soloEstaFecha) {
     asegurarCalendarios();
-    const val = { motivo, laboral };
-    if (!datosSistema.calendarios.feriadosSemana[capa]) datosSistema.calendarios.feriadosSemana[capa] = {};
-    if (!datosSistema.calendarios.feriadosSemana[capa][idEnt]) datosSistema.calendarios.feriadosSemana[capa][idEnt] = {};
+    var val = { motivo: motivo, laboral: laboral };
+
+    if (!datosSistema.calendarios.feriadosSemana[capa]) {
+        datosSistema.calendarios.feriadosSemana[capa] = {};
+    }
+    if (!datosSistema.calendarios.feriadosSemana[capa][idEnt]) {
+        datosSistema.calendarios.feriadosSemana[capa][idEnt] = {};
+    }
+
     if (soloEstaFecha) {
         if (capa === "general") {
             datosSistema.calendarios.general[fs] = val;
-            window.registrarAuditoria("Guardó Feriado por Fecha", `Feriado para fecha ${fs} (General, Motivo: ${motivo}, Laboral: ${laboral})`);
         } else {
-            if (!datosSistema.calendarios[capa][idEnt]) datosSistema.calendarios[capa][idEnt] = {};
+            if (!datosSistema.calendarios[capa]) {
+                datosSistema.calendarios[capa] = {};
+            }
+            if (!datosSistema.calendarios[capa][idEnt]) {
+                datosSistema.calendarios[capa][idEnt] = {};
+            }
             datosSistema.calendarios[capa][idEnt][fs] = val;
-            window.registrarAuditoria("Guardó Feriado por Fecha", `Feriado para fecha ${fs} (Capa: ${capa}, ID: ${idEnt}, Motivo: ${motivo}, Laboral: ${laboral})`);
         }
     } else {
         datosSistema.calendarios.feriadosSemana[capa][idEnt][dowStr] = val;
-        window.registrarAuditoria("Guardó Feriado por Semana", `Feriado para día de semana ${dowStr} (Capa: ${capa}, ID: ${idEnt}, Motivo: ${motivo}, Laboral: ${laboral})`);
     }
 }
 
 function eliminarFeriadoActivo(fecha, estado) {
     asegurarCalendarios();
-    const fs = fecha.toISOString().split("T")[0];
-    const dowStr = String(fecha.getDay());
-    const capaActual = calCapaNivel();
-    const idEntActual = calIdEntidadActiva();
+    var fs = fecha.toISOString().split("T")[0];
+    var dowStr = String(fecha.getDay());
+    var capaActual = calCapaNivel();
+    var idEntActual = calIdEntidadActiva();
 
-    // Si el feriado viene de arriba(es heredado)
     if (estado.capa !== capaActual || String(estado.idEnt) !== String(idEntActual)) {
         guardarFeriadoEnCapa(capaActual, idEntActual, fs, dowStr, "", true, true);
-        window.registrarAuditoria("Eliminó Feriado Heredado (Override)", `Feriado heredado en fecha ${fs} (Capa: ${capaActual}, ID: ${idEntActual}) se ocultó/overrideó.`);
-    }
-    else {
+    } else {
         if (estado.motivo === "" && estado.laboral === true && estado.origen !== "semana") {
+            // Override local, no hacer nada extra
         } else {
-            let detalleAccion = `Feriado: ${estado.motivo || 'N/A'} (Laboral: ${estado.laboral}) en fecha ${fs} (Capa: ${estado.capa}, ID: ${estado.idEnt})`;
             if (estado.origen === "semana") {
-                if (datosSistema.calendarios.feriadosSemana[capaActual]?.[idEntActual]) {
+                if (datosSistema.calendarios.feriadosSemana[capaActual] && datosSistema.calendarios.feriadosSemana[capaActual][idEntActual]) {
                     delete datosSistema.calendarios.feriadosSemana[capaActual][idEntActual][dowStr];
-                    window.registrarAuditoria("Eliminó Feriado Semanal", detalleAccion);
                 }
             } else if (capaActual === "general") {
                 delete datosSistema.calendarios.general[fs];
-                window.registrarAuditoria("Eliminó Feriado General", detalleAccion);
-            } else if (datosSistema.calendarios[capaActual]?.[idEntActual]) {
+            } else if (datosSistema.calendarios[capaActual] && datosSistema.calendarios[capaActual][idEntActual]) {
                 delete datosSistema.calendarios[capaActual][idEntActual][fs];
-                window.registrarAuditoria("Eliminó Feriado", detalleAccion);
             }
         }
     }
@@ -345,51 +688,100 @@ function eliminarFeriadoActivo(fecha, estado) {
 
 function actualizarFeriadoExistente(fecha, estado, motivo, laboral) {
     asegurarCalendarios();
-    const fs = fecha.toISOString().split("T")[0];
-    const dowStr = String(fecha.getDay());
-    const capa = estado.capa;
-    const idEnt = estado.idEnt;
-    const val = { motivo: String(motivo).trim(), laboral: !!laboral };
+    var fs = fecha.toISOString().split("T")[0];
+    var dowStr = String(fecha.getDay());
+    var capa = estado.capa;
+    var idEnt = estado.idEnt;
+    var val = { motivo: String(motivo).trim(), laboral: !!laboral };
+
     if (estado.origen === "semana") {
-        if (!datosSistema.calendarios.feriadosSemana[capa]) datosSistema.calendarios.feriadosSemana[capa] = {};
-        if (!datosSistema.calendarios.feriadosSemana[capa][idEnt]) datosSistema.calendarios.feriadosSemana[capa][idEnt] = {};
+        if (!datosSistema.calendarios.feriadosSemana[capa]) {
+            datosSistema.calendarios.feriadosSemana[capa] = {};
+        }
+        if (!datosSistema.calendarios.feriadosSemana[capa][idEnt]) {
+            datosSistema.calendarios.feriadosSemana[capa][idEnt] = {};
+        }
         datosSistema.calendarios.feriadosSemana[capa][idEnt][dowStr] = val;
-        window.registrarAuditoria("Actualizó Feriado Semanal", `Feriado para día de semana ${dowStr} (Capa: ${capa}, ID: ${idEnt}, Motivo: ${motivo}, Laboral: ${laboral})`);
     } else if (capa === "general") {
         datosSistema.calendarios.general[fs] = val;
-        window.registrarAuditoria("Actualizó Feriado General", `Feriado para fecha ${fs} (General, Motivo: ${motivo}, Laboral: ${laboral})`);
     } else {
-        if (!datosSistema.calendarios[capa][idEnt]) datosSistema.calendarios[capa][idEnt] = {};
+        if (!datosSistema.calendarios[capa]) {
+            datosSistema.calendarios[capa] = {};
+        }
+        if (!datosSistema.calendarios[capa][idEnt]) {
+            datosSistema.calendarios[capa][idEnt] = {};
+        }
         datosSistema.calendarios[capa][idEnt][fs] = val;
-        window.registrarAuditoria("Actualizó Feriado", `Feriado para fecha ${fs} (Capa: ${capa}, ID: ${idEnt}, Motivo: ${motivo}, Laboral: ${laboral})`);
     }
+
+    guardarDatosCalendario();
+    renderizarCalendario();
+}
+
+function guardarHorarioDia(fecha, soloEstaFecha) {
+    asegurarCalendarios();
+    var capa = calCapaNivel();
+    var idEnt = calIdEntidadActiva();
+    var fs = fecha.toISOString().split("T")[0];
+    var dow = String(fecha.getDay());
+
+    var nuevoHorario = {
+        desdeM: document.getElementById("m1").value,
+        hastaM: document.getElementById("m2").value,
+        desdeT: document.getElementById("t1").value,
+        hastaT: document.getElementById("t2").value
+    };
+
+    if (!nuevoHorario.desdeM || !nuevoHorario.hastaM) {
+        return alert("El turno de la mañana es obligatorio para asignar un horario.");
+    }
+
+    if (!datosSistema.calendarios.horariosFecha[capa][idEnt]) {
+        datosSistema.calendarios.horariosFecha[capa][idEnt] = {};
+    }
+    if (!datosSistema.calendarios.horariosSemana[capa][idEnt]) {
+        datosSistema.calendarios.horariosSemana[capa][idEnt] = {};
+    }
+
+    if (soloEstaFecha) {
+        datosSistema.calendarios.horariosFecha[capa][idEnt][fs] = nuevoHorario;
+    } else {
+        datosSistema.calendarios.horariosSemana[capa][idEnt][dow] = nuevoHorario;
+    }
+
     guardarDatosCalendario();
     renderizarCalendario();
 }
 
 function eliminarHorarioDia(fecha) {
     asegurarCalendarios();
-    const capa = calCapaNivel();
-    const idEnt = calIdEntidadActiva();
-    const fs = fecha.toISOString().split("T")[0];
-    const dowStr = String(fecha.getDay());
-    if (datosSistema.calendarios.horariosFecha[capa]?.[idEnt]) {
+    var capa = calCapaNivel();
+    var idEnt = calIdEntidadActiva();
+    var fs = fecha.toISOString().split("T")[0];
+    var dowStr = String(fecha.getDay());
+
+    if (datosSistema.calendarios.horariosFecha[capa] && datosSistema.calendarios.horariosFecha[capa][idEnt]) {
         delete datosSistema.calendarios.horariosFecha[capa][idEnt][fs];
-        window.registrarAuditoria("Eliminó Horario por Fecha", `Horario eliminado para fecha ${fs} (Capa: ${capa}, ID: ${idEnt})`);
     }
-    if (datosSistema.calendarios.horariosSemana[capa]?.[idEnt]) {
+    if (datosSistema.calendarios.horariosSemana[capa] && datosSistema.calendarios.horariosSemana[capa][idEnt]) {
         delete datosSistema.calendarios.horariosSemana[capa][idEnt][dowStr];
-        window.registrarAuditoria("Eliminó Horario por Semana", `Horario eliminado para día de semana ${dowStr} (Capa: ${capa}, ID: ${idEnt})`);
     }
+
     guardarDatosCalendario();
     renderizarCalendario();
 }
 
+/*
+ * ============================================================
+ * EDITOR DE DÍA (MODAL)
+ * ============================================================
+ */
+
 function abrirEditorDia(fecha, estado) {
     fechaGlobal = fecha;
-    const fs = fecha.toISOString().split("T")[0];
-    const modal = document.getElementById("editor");
-    const btnEliminar = document.getElementById("borrarEvento");
+    var fs = fecha.toISOString().split("T")[0];
+    var modal = document.getElementById("editor");
+    var btnEliminar = document.getElementById("borrarEvento");
 
     document.getElementById("fecha").textContent = fs;
     document.getElementById("motivo").value = estado.motivo || "";
@@ -401,20 +793,24 @@ function abrirEditorDia(fecha, estado) {
         btnEliminar.style.display = "none";
     }
 
-    btnEliminar.onclick = () => { 
-        eliminarFeriadoActivo(fecha, estado); 
-        cerrar(); 
+    btnEliminar.onclick = function () {
+        eliminarFeriadoActivo(fecha, estado);
+        cerrar();
     };
 
-    const h = obtenerHorarioActualParaInputs(fecha);
+    var h = obtenerHorarioActualParaInputs(fecha);
     document.getElementById("m1").value = h.desdeM || "";
     document.getElementById("m2").value = h.hastaM || "";
     document.getElementById("t1").value = h.desdeT || "";
     document.getElementById("t2").value = h.hastaT || "";
 
-    document.getElementById("guardarDia").onclick = () => procesarGuardado(true);
-    document.getElementById("guardarSiempre").onclick = () => procesarGuardado(false);
-    
+    document.getElementById("guardarDia").onclick = function () {
+        procesarGuardado(true);
+    };
+    document.getElementById("guardarSiempre").onclick = function () {
+        procesarGuardado(false);
+    };
+
     modal.showModal();
 }
 
@@ -423,20 +819,21 @@ function cerrar() {
 }
 
 async function procesarGuardado(esUnico) {
-    const mot = document.getElementById("motivo").value;
-    const lab = document.getElementById("laboral").checked;
-    const fs = fechaGlobal.toISOString().split("T")[0];
-    const dow = String(fechaGlobal.getDay());
+    var mot = document.getElementById("motivo").value;
+    var lab = document.getElementById("laboral").checked;
+    var fs = fechaGlobal.toISOString().split("T")[0];
+    var dow = String(fechaGlobal.getDay());
 
-    const capaDestino = calCapaNivel();
-    const idEntDestino = calIdEntidadActiva();
+    var capaDestino = calCapaNivel();
+    var idEntDestino = calIdEntidadActiva();
 
     guardarFeriadoEnCapa(capaDestino, idEntDestino, fs, dow, mot, lab, esUnico);
 
-    const h1 = document.getElementById("m1").value;
-    const h2 = document.getElementById("m2").value;
+    var h1 = document.getElementById("m1").value;
+    var h2 = document.getElementById("m2").value;
+
     if (h1 && h2) {
-        const nuevo = {
+        var nuevo = {
             desdeM: h1,
             hastaM: h2,
             desdeT: document.getElementById("t1").value,
@@ -444,12 +841,14 @@ async function procesarGuardado(esUnico) {
         };
 
         if (esUnico) {
-            if (!datosSistema.calendarios.horariosFecha[capaDestino][idEntDestino])
+            if (!datosSistema.calendarios.horariosFecha[capaDestino][idEntDestino]) {
                 datosSistema.calendarios.horariosFecha[capaDestino][idEntDestino] = {};
+            }
             datosSistema.calendarios.horariosFecha[capaDestino][idEntDestino][fs] = nuevo;
         } else {
-            if (!datosSistema.calendarios.horariosSemana[capaDestino][idEntDestino])
+            if (!datosSistema.calendarios.horariosSemana[capaDestino][idEntDestino]) {
                 datosSistema.calendarios.horariosSemana[capaDestino][idEntDestino] = {};
+            }
             datosSistema.calendarios.horariosSemana[capaDestino][idEntDestino][dow] = nuevo;
         }
     }
@@ -459,77 +858,116 @@ async function procesarGuardado(esUnico) {
     cerrar();
 }
 
+/*
+ * ============================================================
+ * REJILLA DEL CALENDARIO
+ * ============================================================
+ */
+
 function renderizarCalendario() {
-    const cont = document.getElementById("CuadriculaCalendario");
+    var cont = document.getElementById("CuadriculaCalendario");
     if (!cont) return;
+
     if (!nivelActual || nivelActual === "") {
         cont.innerHTML = "<p style='padding:20px; text-align:center; color: #666;'>Seleccione una empresa para ver el calendario.</p>";
         return;
     }
-    const mes = fechaActual.getMonth();
-    const ano = fechaActual.getFullYear();
-    const nombresMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-    const etiqueta = document.getElementById("TextoMesAno");
-    if (etiqueta) etiqueta.textContent = `${nombresMeses[mes]} ${ano}`;
+
+    var mes = fechaActual.getMonth();
+    var ano = fechaActual.getFullYear();
+
+    var nombresMeses = [
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ];
+
+    var etiqueta = document.getElementById("TextoMesAno");
+    if (etiqueta) {
+        etiqueta.textContent = nombresMeses[mes] + " " + ano;
+    }
+
     cont.innerHTML = "";
-    let primerDiaSemana = new Date(ano, mes, 1).getDay();
-    const blancos = (primerDiaSemana === 0) ? 6 : primerDiaSemana - 1;
-    for (let i = 0; i < blancos; i++) {
-        const celdaVacia = document.createElement("article");
+
+    var primerDiaSemana = new Date(ano, mes, 1).getDay();
+    var blancos = (primerDiaSemana === 0) ? 6 : primerDiaSemana - 1;
+
+    for (var i = 0; i < blancos; i++) {
+        var celdaVacia = document.createElement("article");
         celdaVacia.className = "DiaCalendario vacio";
         cont.appendChild(celdaVacia);
     }
-    const ultimoDiaMes = new Date(ano, mes + 1, 0).getDate();
-    for (let d = 1; d <= ultimoDiaMes; d++) {
-        const fechaDia = new Date(ano, mes, d);
-        const estado = obtenerEstadoDia(fechaDia);
-        const celda = document.createElement("article");
+
+    var ultimoDiaMes = new Date(ano, mes + 1, 0).getDate();
+
+    for (var d = 1; d <= ultimoDiaMes; d++) {
+        var fechaDia = new Date(ano, mes, d);
+        var estado = obtenerEstadoDia(fechaDia);
+        var celda = document.createElement("article");
         celda.className = "DiaCalendario";
+
         if (estado.motivo && estado.motivo.trim() !== "") {
-    celda.classList.add(estado.laboral ? "feriado-laboral" : "feriado");
-}
-        let horarioTexto = "";
+            celda.classList.add(estado.laboral ? "feriado-laboral" : "feriado");
+        }
+
+        var horarioTexto = "";
         if (estado.tipo === "laboral" || estado.laboral === true) {
             horarioTexto = textoHorarioParaDia(fechaDia);
         }
-        
-        const subInfo = horarioTexto ? `<small class="dia-horario-extra">${horarioTexto}</small>` : "";
-        celda.innerHTML = `<time>${d}</time><p>${estado.motivo || ""}</p>${subInfo}`;
-        celda.onclick = (e) => {
-            e.preventDefault();
-            abrirEditorDia(new Date(ano, mes, d), estado);
-        };
+
+        var subInfo = horarioTexto ? '<small class="dia-horario-extra">' + horarioTexto + '</small>' : "";
+        celda.innerHTML = "<time>" + d + "</time><p>" + (estado.motivo || "") + "</p>" + subInfo;
+
+        celda.onclick = (function (dia, mesRef, anoRef, estadoRef) {
+            return function (e) {
+                e.preventDefault();
+                abrirEditorDia(new Date(anoRef, mesRef, dia), estadoRef);
+            };
+        })(d, mes, ano, estado);
+
         cont.appendChild(celda);
     }
+
     cargarHorarioActual();
 }
 
+/*
+ * ============================================================
+ * NAVEGACIÓN Y VISTAS
+ * ============================================================
+ */
+
 function mostrarCalendario() {
-    const vista = document.getElementById("Calendario");
+    var vista = document.getElementById("Calendario");
     if (!vista) return;
-    const consulta = document.getElementById("Consulta");
+
+    var consulta = document.getElementById("Consulta");
     if (consulta) {
         consulta.style.setProperty("display", "none", "important");
     }
+
     vista.style.display = "block";
-    calRellenarSelectContexto();
+    calRellenarSelectContexto("inicial");
     renderizarCalendario();
 }
 
 function cerrarCalendario() {
-    const vistaConsulta = document.getElementById("Consulta");
-    const vistaCalendario = document.getElementById("Calendario");
+    var vistaConsulta = document.getElementById("Consulta");
+    var vistaCalendario = document.getElementById("Calendario");
+
     if (vistaConsulta && vistaCalendario) {
         vistaCalendario.style.display = "none";
         vistaConsulta.style.display = "flex";
-        if (typeof renderizarListaEmpresas === "function") renderizarListaEmpresas();
+        if (typeof renderizarListaEmpresas === "function") {
+            renderizarListaEmpresas();
+        }
         return;
     }
+
     window.location.href = "index.php";
 }
 
-function cambiarMes(d) {
-    fechaActual.setMonth(fechaActual.getMonth() + d);
+function cambiarMes(delta) {
+    fechaActual.setMonth(fechaActual.getMonth() + delta);
     renderizarCalendario();
 }
 
@@ -544,192 +982,181 @@ function verCalendarioGeneral() {
     mostrarCalendario();
 }
 
-function verCalendarioEmpresa(n) {
+function verCalendarioEmpresa(nombreEmpresa) {
     nivelActual = "empresas";
-    idActual = n;
-    empresaActual = n;
+    idActual = nombreEmpresa;
+    empresaActual = nombreEmpresa;
     deptoActual = "";
     idEmpleadoActual = null;
-    document.getElementById("EtiquetaPrincipal").textContent = `Calendario de: ${n}`;
+    document.getElementById("EtiquetaPrincipal").textContent = "Calendario de: " + nombreEmpresa;
     document.getElementById("EtiquetaSubtitulo").textContent = "Nivel: Empresa";
     mostrarCalendario();
 }
 
-function verCalendarioDepartamento(d, e) {
+function verCalendarioDepartamento(nombreDepto, nombreEmpresa) {
     nivelActual = "departamentos";
-    idActual = d;
-    deptoActual = d;
-    empresaActual = e;
+    idActual = nombreDepto;
+    deptoActual = nombreDepto;
+    empresaActual = nombreEmpresa;
     idEmpleadoActual = null;
-    document.getElementById("EtiquetaPrincipal").textContent = `Calendario de: ${d}`;
-    document.getElementById("EtiquetaSubtitulo").textContent = `Nivel: Departamento (${e})`;
+    document.getElementById("EtiquetaPrincipal").textContent = "Calendario de: " + nombreDepto;
+    document.getElementById("EtiquetaSubtitulo").textContent = "Nivel: Departamento (" + nombreEmpresa + ")";
     mostrarCalendario();
 }
 
-function verCalendarioDeEmpleado(ced, nom, dep, emp) {
+function verCalendarioDeEmpleado(cedula, nombreCompleto, nombreDepto, nombreEmpresa) {
     nivelActual = "empleados";
-    idActual = ced;
-    idEmpleadoActual = ced;
-    deptoActual = dep;
-    empresaActual = emp;
-    document.getElementById("EtiquetaPrincipal").textContent = `Calendario de: ${nom}`;
-    document.getElementById("EtiquetaSubtitulo").textContent = `Nivel: Empleado (${dep})`;
+    idActual = cedula;
+    idEmpleadoActual = cedula;
+    deptoActual = nombreDepto;
+    empresaActual = nombreEmpresa;
+    document.getElementById("EtiquetaPrincipal").textContent = "Calendario de: " + nombreCompleto;
+    document.getElementById("EtiquetaSubtitulo").textContent = "Nivel: Empleado (" + nombreDepto + ")";
     mostrarCalendario();
 }
 
-function calRellenarSelectContexto(origen) {
-    const selE = document.getElementById("CalSelEmpresa");
-    const selD = document.getElementById("CalSelDepto");
-    const selEm = document.getElementById("CalSelEmpleado");
-    if (!selE || !selD || !selEm) return;
-    const empSeleccionada = selE.value;
-    if (origen === "empresa") {
-        selD.innerHTML = '<option value="">— Elija departamento —</option>';
-        selEm.innerHTML = '<option value="">— Elija empleado —</option>';
-        selEm.disabled = true;
-        if (empSeleccionada) {
-            selD.disabled = false;
-            const todosLosDeptos = Array.isArray(datosSistema.departamentos) ? datosSistema.departamentos : [];
-            const filtrados = todosLosDeptos.filter(d =>
-                String(d.empresa || "").trim().toLowerCase() === String(empSeleccionada).trim().toLowerCase()
-            );
-            filtrados.forEach(d => {
-                const opt = document.createElement("option");
-                opt.value = d.nombre;
-                opt.textContent = d.nombre;
-                selD.appendChild(opt);
-            });
-        } else {
-            selD.disabled = true;
-        }
-    }
-    if (origen === "depto") {
-        const deptoSeleccionado = selD.value;
-        selEm.innerHTML = '<option value="">— Elija empleado —</option>';
-        if (deptoSeleccionado) {
-            selEm.disabled = false;
-            const empleados = Array.isArray(datosSistema.empleados) ? datosSistema.empleados : [];
-            const filtradosEm = empleados.filter(e =>
-                String(e.empresa || "").trim().toLowerCase() === String(empSeleccionada).trim().toLowerCase() &&
-                String(e.depto || "").trim().toLowerCase() === String(deptoSeleccionado).trim().toLowerCase()
-            );
-            filtradosEm.forEach(e => {
-                selEm.appendChild(new Option(`${e.nombres} ${e.apellidos}`, e.cedula));
-            });
-        } else {
-            selEm.disabled = true;
-        }
-    }
-    const btnAplicar = document.querySelector("button[onclick='calAplicarContextoDesdeSelects()']");
-    if (btnAplicar) btnAplicar.disabled = !empSeleccionada;
-}
+/*
+ * ============================================================
+ * SINCRONIZACIÓN CON GOOGLE CALENDAR
+ * ============================================================
+ */
 
-function calAplicarContextoDesdeSelects() {
-    const elEmp = document.getElementById("CalSelEmpresa");
-    const elDep = document.getElementById("CalSelDepto");
-    const elCed = document.getElementById("CalSelEmpleado");
-    const emp = elEmp?.value || "";
-    const dep = elDep?.value || "";
-    const ced = elCed?.value || "";
-    if (!emp || emp === "") return;
-    empresaActual = emp;
-    deptoActual = dep;
-    idEmpleadoActual = ced || null;
-    if (ced) {
-        const e = datosSistema.empleados.find((x) => x.cedula === ced);
-        const nom = e ? `${e.nombres} ${e.apellidos}` : ced;
-        verCalendarioDeEmpleado(ced, nom, dep, emp);
-    } else if (dep) {
-        verCalendarioDepartamento(dep, emp);
-    } else {
-        verCalendarioEmpresa(emp);
-    }
-}
-
-document.addEventListener("DOMContentLoaded", async () => {
-    await cargarDatosCalendarioDesdeBD();
-    asegurarCalendarios();
-    nivelActual = "";
-    empresaActual = "";
-    idActual = null;
-    const selE = document.getElementById("CalSelEmpresa");
-    const selD = document.getElementById("CalSelDepto");
-    const selEm = document.getElementById("CalSelEmpleado");
-    if (selE) {
-        selE.innerHTML = '<option value="">— Seleccione una Empresa —</option>';
-        const empresas = Array.isArray(datosSistema.empresas) ? datosSistema.empresas : [];
-        empresas.forEach(e => selE.appendChild(new Option(e.nombre, e.nombre)));
-        selE.onchange = () => {
-            console.log("Cambio en Empresa detectado");
-            calRellenarSelectContexto("empresa");
-        };
-    }
-    if (selD) {
-        selD.onchange = () => {
-            console.log("Cambio en Departamento detectado");
-            calRellenarSelectContexto("depto");
-        };
-    }
-    document.getElementById("FormHorarioLaboral")?.addEventListener("submit", guardarHorarioActual);
-    if (selD) selD.disabled = true;
-    if (selEm) selEm.disabled = true;
-    document.getElementById("EtiquetaPrincipal").textContent = "Gestión de Asistencia";
-    document.getElementById("EtiquetaSubtitulo").textContent = "Seleccione una empresa para comenzar";
-});
-
+/**
+ * Descarga los feriados de Venezuela desde Google Calendar
+ * y los pinta en la rejilla del calendario.
+ *
+ * SOLUCIÓN a fallos anteriores:
+ *   - Ruta absoluta desde la raíz del proyecto (sin ./ ni ..).
+ *   - Manejo mejorado de la respuesta y errores.
+ *   - Se valida que haya empresa seleccionada.
+ */
 async function sincronizarConGoogle() {
-    const idEntidad = calIdEntidadActiva();
-    const nivel = nivelActual;
-    if (!empresaActual) {
-        return alert("Por favor, selecciona una empresa antes de sincronizar.");
+    // Validar que haya una empresa seleccionada
+    if (!empresaActual || nivelActual === "" || nivelActual === "general") {
+        return alert("Por favor, seleccione primero una empresa en '¿Para quién programa?' y pulse 'Aplicar selección'.");
     }
+
+    var btn = document.getElementById("BtnSincronizarGoogle");
+    if (!btn) return;
+
+    var textoOriginal = btn.textContent;
+    btn.textContent = "Sincronizando...";
+    btn.disabled = true;
+
     try {
-        const btn = document.getElementById("BtnSincronizarGoogle");
-        const textoOriginal = btn.textContent;
-        btn.textContent = "Sincronizando...";
-        btn.disabled = true;
-        const respuesta = await fetch(`./Calendario/sincronizar_google.php?nivel=${nivel}&id=${idEntidad}`);
-        const resultado = await respuesta.json();
-        if (resultado.success) {
+        // Usar ruta ABSOLUTA desde la raíz del proyecto
+        var url = "Calendario/sincronizar_google.php?nivel=" + encodeURIComponent(nivelActual) + "&id=" + encodeURIComponent(calIdEntidadActiva());
+
+        var respuesta = await fetch(url);
+        var resultado = await respuesta.json();
+
+        if (resultado.success === true) {
+            // Actualizar los datos locales con los eventos de Google
             actualizarDatosLocalesDesdeGoogle(resultado.eventos);
-            alert("¡Sincronización exitosa!");
+            alert("¡Sincronización exitosa! Se cargaron " + (resultado.total_eventos || resultado.eventos.length || 0) + " feriados desde Google Calendar.");
             renderizarCalendario();
         } else {
-            alert("Error al sincronizar: " + resultado.message);
+            var mensaje = resultado.message || "Error desconocido al sincronizar.";
+            alert("Error al sincronizar: " + mensaje);
         }
     } catch (error) {
-        console.error("Error en la conexión con la API:", error);
-        alert("No se pudo conectar con el servidor de sincronización.");
+        console.error("Error en la sincronización con Google:", error);
+        alert("No se pudo conectar con el servidor de sincronización. Revise su conexión a internet.");
     } finally {
-        const btn = document.getElementById("BtnSincronizarGoogle");
-        btn.textContent = "Sincronizar con Google";
+        btn.textContent = textoOriginal;
         btn.disabled = false;
     }
 }
 
 function actualizarDatosLocalesDesdeGoogle(eventos) {
     asegurarCalendarios();
-    const capa = calCapaNivel();
-    const idEnt = calIdEntidadActiva();
-    if (capa !== "general") {
+    var capa = calCapaNivel();
+    var idEnt = calIdEntidadActiva();
+
+    // Limpiar eventos anteriores de esta capa
+    if (capa === "general") {
+        datosSistema.calendarios.general = {};
+    } else {
         if (!datosSistema.calendarios[capa]) {
             datosSistema.calendarios[capa] = {};
         }
-        if (!datosSistema.calendarios[capa][idEnt]) {
-            datosSistema.calendarios[capa][idEnt] = {};
-        }
         datosSistema.calendarios[capa][idEnt] = {};
-    } else {
-        datosSistema.calendarios.general = {};
     }
-    eventos.forEach(ev => {
-        const val = { motivo: ev.summary, laboral: ev.laboral || false };
+
+    // Insertar los nuevos eventos
+    for (var i = 0; i < eventos.length; i++) {
+        var ev = eventos[i];
+        var val = {
+            motivo: ev.summary || "Sin nombre",
+            laboral: ev.laboral || false
+        };
+
         if (capa === "general") {
             datosSistema.calendarios.general[ev.fecha] = val;
         } else {
             datosSistema.calendarios[capa][idEnt][ev.fecha] = val;
         }
-    });
+    }
+
     guardarDatosCalendario();
-    console.log("Datos actualizados en LocalStorage:", datosSistema.calendarios);
 }
+
+/*
+ * ============================================================
+ * INICIALIZACIÓN AL CARGAR LA PÁGINA
+ * ============================================================
+ */
+
+document.addEventListener("DOMContentLoaded", async function () {
+
+    // 1. Cargar datos desde la base de datos
+    await cargarDatosCalendarioDesdeBD();
+
+    // 2. Asegurar la estructura de calendarios
+    asegurarCalendarios();
+
+    // 3. Resetear estado
+    nivelActual = "";
+    empresaActual = "";
+    deptoActual = "";
+    idActual = null;
+    idEmpleadoActual = null;
+
+    // 4. Configurar eventos de los selects
+    var selE = document.getElementById("CalSelEmpresa");
+    var selD = document.getElementById("CalSelDepto");
+    var selEm = document.getElementById("CalSelEmpleado");
+
+    if (selE) {
+        selE.onchange = function () {
+            calRellenarSelectContexto("empresa");
+        };
+    }
+
+    if (selD) {
+        selD.onchange = function () {
+            calRellenarSelectContexto("depto");
+        };
+    }
+
+    // 5. Llenar los selects con los datos cargados
+    calRellenarSelectContexto("inicial");
+
+    // 6. Configurar el formulario de horario
+    var formHorario = document.getElementById("FormHorarioLaboral");
+    if (formHorario) {
+        formHorario.addEventListener("submit", guardarHorarioActual);
+    }
+
+    // 7. Si estamos en la página de Horarios, mostrar el calendario
+    var esPaginaHorarios = window.location.href.indexOf("p=horarios") !== -1;
+
+    if (esPaginaHorarios) {
+        var vistaCalendario = document.getElementById("Calendario");
+        if (vistaCalendario) {
+            vistaCalendario.style.display = "block";
+        }
+        document.getElementById("EtiquetaPrincipal").textContent = "Gestión de Asistencia";
+        document.getElementById("EtiquetaSubtitulo").textContent = "Seleccione una empresa para comenzar";
+    }
+});

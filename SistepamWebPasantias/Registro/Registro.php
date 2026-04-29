@@ -59,7 +59,7 @@
 
 
 
-    <!-- Tarjeta al guardar la empresa en localStorage -->
+    <!-- Tarjeta tras guardar la empresa en MySQL -->
 
 
 

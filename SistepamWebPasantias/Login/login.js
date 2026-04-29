@@ -30,11 +30,7 @@ const handleSubmitLogin = async (event) => {
             return;
         }
 
-        const usuarioActivo = {
-            usuario: resultado?.data?.usuario || usuario,
-            rol: resultado?.data?.rol || 'usuario',
-        };
-        sessionStorage.setItem('usuario_activo', JSON.stringify(usuarioActivo));
+        /* La sesión queda en cookies PHP (controlador_login.php); no se guarda nada en el navegador. */
         window.location.href = resultado.redirect || '../index.php';
     } catch (error) {
         mensajeError.textContent = 'Error de red o del servidor. Intenta nuevamente.';

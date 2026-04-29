@@ -1,9 +1,9 @@
 /**
  * Gestión de Usuarios y Roles
- * Sincronizado con el sistema de registro y persistencia local
+ * Datos en tablas `roles`, `roles_permisos`, `permisos` y `usuarios`.
  */
 
-/* Lectura y persistencia de datos */
+/* Lectura de datos */
 
 let datosGestionCache = { usuarios: [], empresas: [], departamentos: [] };
 let rolesCache = [];
@@ -22,20 +22,6 @@ async function cargarDatosGestionBD() {
     return datosGestionCache;
 }
 
-async function guardarDatosGestion(datos) {
-    datosGestionCache = datos;
-    const respuesta = await fetch("datos/gestion_api.php", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
-        body: new URLSearchParams({
-            accion: "guardar_datos_sistema",
-            datos: JSON.stringify(datosGestionCache),
-        }),
-    });
-    const resultado = await respuesta.json();
-    if (!resultado?.ok) throw new Error(resultado?.mensaje || "No se pudo guardar en BD.");
-}
-
 async function cargarRolesBD() {
     const respuesta = await fetch("datos/gestion_api.php", {
         method: "POST",
@@ -47,20 +33,6 @@ async function cargarRolesBD() {
         rolesCache = resultado.data.roles;
     }
     return rolesCache;
-}
-
-async function guardarRoles(roles) {
-    rolesCache = roles;
-    const respuesta = await fetch("datos/gestion_api.php", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
-        body: new URLSearchParams({
-            accion: "guardar_roles_sistema",
-            roles: JSON.stringify(rolesCache),
-        }),
-    });
-    const resultado = await respuesta.json();
-    if (!resultado?.ok) throw new Error(resultado?.mensaje || "No se pudo guardar roles en BD.");
 }
 
 async function cargarUsuariosBD() {
@@ -94,7 +66,7 @@ window.abrirListaRoles = async function() {
 
 window.abrirModalRol = async function(id = null) {
     const roles = await cargarRolesBD();
-    const rol = id ? roles.find(r => r.id === id) : null;
+    const rol = id ? roles.find((r) => String(r.id) === String(id)) : null;
     const overlay = document.getElementById("OverlayRol");
     
     if (!overlay) return;
@@ -104,7 +76,7 @@ window.abrirModalRol = async function(id = null) {
     document.getElementById("TituloModalRol").textContent = rol ? "Editar Rol" : "Nuevo Rol";
 
     // Módulos disponibles en el sistema para asignar permisos
-    const modulos = ["registro", "consulta", "horarios", "reportes", "gestion"];
+    const modulos = ["registro", "consulta", "horarios", "reportes", "gestion", "auditorias"];
     const grid = document.getElementById("GridModulosRol");
     if (grid) {
         grid.innerHTML = modulos.map(m => `
@@ -204,33 +176,43 @@ async function renderizarUsuarios() {
 
 window.guardarRol = async function(e) {
     e.preventDefault();
-    const id = document.getElementById("R_Id").value;
+    const id = document.getElementById("R_Id").value.trim();
     const nombre = document.getElementById("R_Nombre").value.trim();
-    const permisos = Array.from(document.querySelectorAll("#GridModulosRol input:checked")).map(cb => cb.value);
+    const permisos = Array.from(document.querySelectorAll("#GridModulosRol input:checked")).map((cb) => cb.value);
 
     if (!nombre || !permisos.length) return alert("Ingrese el nombre y al menos un permiso.");
 
-    let roles = await cargarRolesBD();
-    if (roles.find(r => r.nombre.toLowerCase() === nombre.toLowerCase() && r.id !== id)) {
-        return alert("Ya existe un rol con ese nombre.");
-    }
+    try {
+        const respuesta = await fetch("datos/gestion_api.php", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
+            body: new URLSearchParams({
+                accion: "persistir_rol",
+                id_rol: id,
+                nombre,
+                permisos: JSON.stringify(permisos),
+            }),
+        });
+        const resultado = await respuesta.json();
+        if (!resultado?.ok) {
+            return alert(resultado?.mensaje || "No se pudo guardar el rol.");
+        }
 
-    if (id) {
-        const idx = roles.findIndex(r => r.id === id);
-        roles[idx] = { ...roles[idx], nombre, permisos };
-        window.registrarAuditoria("Editó Rol", `Rol: ${nombre} (ID: ${id})`); // Auditoría
-    } else {
-        roles.push({ id: "rol_" + Date.now(), nombre, permisos });
-        window.registrarAuditoria("Creó Rol", `Rol: ${nombre}`); // Auditoría
-    }
+        if (id) {
+            window.registrarAuditoria("Editó Rol", `Rol: ${nombre} (ID: ${id})`);
+        } else {
+            window.registrarAuditoria("Creó Rol", `Rol: ${nombre}`);
+        }
 
-    await guardarRoles(roles);
-    
-    const overlayRol = document.getElementById("OverlayRol");
-    if (overlayRol) overlayRol.style.display = "none";
-    
-    await renderizarRoles();
-    await renderizarUsuarios();
+        const overlayRol = document.getElementById("OverlayRol");
+        if (overlayRol) overlayRol.style.display = "none";
+
+        await renderizarRoles();
+        await renderizarUsuarios();
+    } catch (err) {
+        console.error(err);
+        alert("Error de red al guardar el rol.");
+    }
 };
 
 window.guardarUsuario = async function(e) {
@@ -291,15 +273,32 @@ window.guardarUsuario = async function(e) {
 
 window.eliminarRol = async function(id) {
     if (!confirm("¿Seguro que desea eliminar este rol? Los usuarios asociados podrían perder sus permisos.")) return;
-    let roles = await cargarRolesBD();
-    const rolEliminado = roles.find(r => r.id === id); // Obtener el rol antes de eliminarlo
-    roles = roles.filter(r => r.id !== id);
-    await guardarRoles(roles);
-    if (rolEliminado) {
-        window.registrarAuditoria("Eliminó Rol", `Rol: ${rolEliminado.nombre} (ID: ${id})`); // Auditoría
+
+    const roles = await cargarRolesBD();
+    const rolEliminado = roles.find((r) => String(r.id) === String(id));
+
+    try {
+        const respuesta = await fetch("datos/gestion_api.php", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
+            body: new URLSearchParams({
+                accion: "eliminar_rol_por_id",
+                id_rol: String(id),
+            }),
+        });
+        const resultado = await respuesta.json();
+        if (!resultado?.ok) {
+            return alert(resultado?.mensaje || "No se pudo eliminar el rol.");
+        }
+        if (rolEliminado) {
+            window.registrarAuditoria("Eliminó Rol", `Rol: ${rolEliminado.nombre} (ID: ${id})`);
+        }
+        await renderizarRoles();
+        await renderizarUsuarios();
+    } catch (err) {
+        console.error(err);
+        alert("Error de red al eliminar el rol.");
     }
-    await renderizarRoles();
-    await renderizarUsuarios();
 };
 
 window.eliminarUsuario = async function(login) {

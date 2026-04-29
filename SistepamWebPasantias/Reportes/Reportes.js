@@ -1,5 +1,3 @@
-const STORAGE_DATOS = "datos_gestion";
-
 function reportesAsegurarIncidencias(datos) {
     // Si no existe el array de incidencias, lo inicializamos como vacío para evitar errores posteriores.
     if (!Array.isArray(datos.incidencias)) datos.incidencias = [];
@@ -120,11 +118,39 @@ async function reportesOnSubmitIncidencia(ev) {
     alert("Incidencia guardada correctamente.");
 }
 
+function reportesCambiarPestana(pestanaActiva) {
+    // Remover clase activa de todas las pestañas
+    document.querySelectorAll('.ReportesPestaña').forEach(btn => btn.classList.remove('ReportesPestaña--activa'));
+    // Agregar clase activa a la pestaña seleccionada
+    pestanaActiva.classList.add('ReportesPestaña--activa');
+    
+    // Ocultar todos los paneles
+    document.querySelectorAll('.ReportesPanel').forEach(panel => panel.hidden = true);
+    // Mostrar el panel correspondiente
+    const panelId = pestanaActiva.getAttribute('data-panel');
+    const panel = document.getElementById(panelId);
+    if (panel) panel.hidden = false;
+}
+
+function reportesOnSubmitNomina(ev) {
+    ev.preventDefault();
+    const form = ev.target;
+    const formato = form.formato.value;
+    window.open(`nomina_txt/generador_nomina.php?formato=${formato}`, '_blank');
+}
+
 function volverMenuReportes() {
     window.location.href = "index.php?p=inicio";
 }
 
 document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("FormIncidencia")?.addEventListener("submit", reportesOnSubmitIncidencia);
+    document.getElementById("FormNomina")?.addEventListener("submit", reportesOnSubmitNomina);
+    
+    // Manejar clicks en pestañas
+    document.querySelectorAll('.ReportesPestaña').forEach(btn => {
+        btn.addEventListener('click', () => reportesCambiarPestana(btn));
+    });
+    
     reportesRenderizarTabla();
 });

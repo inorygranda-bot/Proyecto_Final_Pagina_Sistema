@@ -13,7 +13,7 @@
 
     </header>
 
-    <p class="ModalConsulta__ayuda">Se guarda en el mismo objeto del sistema (<code>localStorage</code>) que las empresas.</p>
+    <p class="ModalConsulta__ayuda">Los datos se registran en la base de datos vinculados a la empresa seleccionada.</p>
 
     <form id="FormNuevoDepartamento" class="FormModalConsulta" autocomplete="off">
 
