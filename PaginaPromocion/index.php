@@ -117,9 +117,9 @@
             <h2>Opiniones Colaborativas</h2>
             <p>Propón mejoras para el sistema.</p>
             <form id="form-comentarios">
-                <input type="text" name="nombre" placeholder="Nombre completo" required>
-                <input type="email" name="correo" placeholder="Email corporativo" required>
-                <textarea name="mensaje" rows="5" placeholder="Describe tu opinión..." required></textarea>
+                <input type="text" name="nombre" placeholder="Nombre" required>
+                <input type="email" name="correo" placeholder="Email" required>
+                <textarea name="mensaje" rows="5" placeholder="Cuéntanos tu opinión..." required></textarea>
                 <button type="submit">Enviar Propuesta</button>
             </form>
         </section>

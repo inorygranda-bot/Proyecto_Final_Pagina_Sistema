@@ -1,19 +1,9 @@
-document.querySelectorAll('nav a').forEach(enlace => {
-    enlace.addEventListener('click', function(e) {
-        e.preventDefault();
-        const destino = document.querySelector(this.getAttribute('href'));
-        if (destino) {
-            destino.scrollIntoView({ behavior: 'smooth' });
-        }
-    });
-});
-
 const formulario = document.getElementById('form-comentarios');
 
 if (formulario) {
     formulario.addEventListener('submit', (e) => {
         e.preventDefault();
-        alert('Sugerencia procesada. El equipo técnico revisará tu propuesta.');
+        alert('Sugerencia procesada.');
         formulario.reset();
     });
 }
